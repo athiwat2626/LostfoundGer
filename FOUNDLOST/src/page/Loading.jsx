@@ -1,8 +1,19 @@
-import React from "react";
+import React, { useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import bg from "../assets/images/bg2.png";
 import logo from "../assets/images/logo.png";
 
 const Loading = () => {
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    const timeoutId = setTimeout(() => {
+      navigate("/login", { replace: true });
+    }, 5000);
+
+    return () => clearTimeout(timeoutId);
+  }, [navigate]);
+
   return (
     <div className="relative w-screen h-screen overflow-hidden">
       {/* Background */}
