@@ -8,6 +8,12 @@ services:
       # Keep local credentials in backend/.env. This file is ignored by Git.
       - ./backend/.env
 
+    environment:
+      # PostgreSQL's bootstrap variables. Keep these names in sync with
+      # DB_NAME and DB_USER in backend/.env when changing the database setup.
+      POSTGRES_DB: ${POSTGRES_DB:-foundlost_db}
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+
     ports:
       - "5433:5432"
 
