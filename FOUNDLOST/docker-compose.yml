@@ -1,5 +1,3 @@
-version: "3.9"
-
 services:
   postgres:
     image: postgres:16
@@ -7,16 +5,15 @@ services:
     restart: unless-stopped
 
     env_file:
+      # Keep local credentials in backend/.env. This file is ignored by Git.
       - ./backend/.env
-
-    environment:
-      POSTGRES_DB: ${POSTGRES_DB:-foundlost_db}
-      POSTGRES_USER: ${POSTGRES_USER:-postgres}
 
     ports:
       - "5433:5432"
 
     volumes:
+      # Named volume keeps PostgreSQL data after `docker compose down`.
+      # Do not run `docker compose down -v` unless the database may be deleted.
       - postgres_data:/var/lib/postgresql/data
 
     healthcheck:
@@ -31,6 +28,7 @@ services:
     restart: unless-stopped
 
     env_file:
+      # Uses the same local, Git-ignored credentials file as PostgreSQL.
       - ./backend/.env
 
     ports:
@@ -44,5 +42,6 @@ services:
       - pgadmin_data:/var/lib/pgadmin
 
 volumes:
+  # Docker stores these outside Git. Export a SQL dump to transfer existing data.
   postgres_data:
   pgadmin_data:
