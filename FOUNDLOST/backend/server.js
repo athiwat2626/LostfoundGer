@@ -1,3 +1,4 @@
+// โหลดไลบรารีและโมดูลต่าง ๆ ที่ API ใช้งาน
 const express = require("express");
 const cors = require("cors");
 const path = require("path");
@@ -8,17 +9,23 @@ const nodemailer = require("nodemailer")
 const userRoute = require("./routes/userRoute");
 const foundItemRoute = require("./routes/foundItemRoute");
 const lostItemRoute = require("./routes/lostItemRoute");
+const swaggerUi = require("swagger-ui-express")
+const swaggerSpec = require("./swagger");
 const { validateEmail } = require("./validation");
 
+
+// ตั้งค่าการอ่าน request, การเรียกใช้ข้ามโดเมน และการเข้าถึงไฟล์อัปโหลด
 app.use(cors());
-app.use(express.json());
+app.use(express.json()); // Middleware สำหรับอ่านข้อมูล JSON
 app.use(express.urlencoded({ extended: true }));
 app.use("/assets/uploads/", express.static(path.join(__dirname, "assets")));
 
+// Endpoint พื้นฐานสำหรับตรวจสอบว่าเซิร์ฟเวอร์ทำงานอยู่
 app.get("/", (req, res) => {
   res.send("Hello World!");
 });
 
+// ลงทะเบียน route หลัก โดยคง path data* ไว้เป็น alias ให้ frontend เดิม
 app.use("/user", userRoute);
 app.use("/foundItem", foundItemRoute);
 app.use("/lostItem", lostItemRoute);
@@ -26,6 +33,7 @@ app.use("/datalost", lostItemRoute);
 app.use("/datafound", foundItemRoute);
 app.use("/assets", express.static("assets"));
 
+// แปลงข้อผิดพลาดจากการอัปโหลดให้เป็นข้อความที่ client เข้าใจได้
 app.use((error, req, res, next) => {
   if (error.code === "LIMIT_FILE_SIZE") {
     return res.status(400).json({ error: "Image must not exceed 5 MB" });
@@ -36,20 +44,18 @@ app.use((error, req, res, next) => {
   next(error);
 });
 
-// mailer 
+// ตั้งค่า Gmail เมื่อมีข้อมูลผู้ใช้และรหัสผ่านสำหรับส่งเมลครบเท่านั้น
 // app.post("/email", (req, res) => {
 const mailUser = process.env.MAIL_USER;
 const mailPassword = process.env.MAIL_APP_PASSWORD;
 const transporter = mailUser && mailPassword
   ? nodemailer.createTransport({
-      service: "gmail",
-      auth: { user: mailUser, pass: mailPassword },
-    })
+    service: "gmail",
+    auth: { user: mailUser, pass: mailPassword },
+  })
   : null;
 
-const otpStore = {};
-
-//Send OTP route
+// สร้าง OTP ใหม่ เก็บลง PostgreSQL และส่งไปทางอีเมล
 app.post("/api/send-otp", async (req, res) => {
   try {
     const { email } = req.body;
@@ -70,7 +76,7 @@ app.post("/api/send-otp", async (req, res) => {
 
     const normalizedEmail = email.trim().toLowerCase();
 
-    // เช็ค Email ใน database
+    // ตรวจสอบว่าอีเมลนี้เป็นของผู้ใช้ที่ลงทะเบียนไว้
     const result = await db.query(
       `SELECT student_id, first_name, last_name, email, profile_image
        FROM users
@@ -78,7 +84,7 @@ app.post("/api/send-otp", async (req, res) => {
       [normalizedEmail]
     );
 
-    // ไม่มี Email ใน database
+    // ไม่ส่ง OTP หากไม่พบอีเมลในระบบ
     if (result.rows.length === 0) {
       return res.status(404).json({
         success: false,
@@ -86,19 +92,17 @@ app.post("/api/send-otp", async (req, res) => {
       });
     }
 
-    // สร้าง OTP 6 หลัก
+    // สร้าง OTP 6 หลัก และแทนที่ OTP เดิมของอีเมลนี้
     const otp = Math.floor(100000 + Math.random() * 900000).toString();
 
-    // หมดอายุ 5 นาที
-    const expiresAt = Date.now() + 5 * 60 * 1000;
+    await db.query("DELETE FROM otp_codes WHERE email = $1", [normalizedEmail]);
+    await db.query(
+      `INSERT INTO otp_codes (email, otp, expires_at)
+       VALUES ($1, $2, NOW() + INTERVAL '5 minutes')`,
+      [normalizedEmail, otp]
+    );
 
-    // เก็บ OTP
-    otpStore[normalizedEmail] = {
-      otp: otp,
-      expiresAt: expiresAt
-    };
-
-    // ส่ง Email
+    // ส่ง OTP หลังจากบันทึกลงฐานข้อมูลพร้อมกำหนดอายุ 5 นาที
     await transporter.sendMail({
       from: mailUser,
       to: normalizedEmail,
@@ -127,8 +131,8 @@ app.post("/api/send-otp", async (req, res) => {
 });
 
 
-//Verify OTP
-app.post("/api/verify-otp", (req, res) => {
+// ตรวจสอบ OTP และลบทันทีเมื่อยืนยันสำเร็จ
+app.post("/api/verify-otp", async (req, res) => {
   try {
     const { email, otp } = req.body;
 
@@ -139,36 +143,29 @@ app.post("/api/verify-otp", (req, res) => {
       });
     }
     const normalizedEmail = email.trim().toLowerCase();
-    const storedOTP = otpStore[normalizedEmail];
-  
-    // ไม่มี OTP
-    if (!storedOTP) {
-      return res.status(400).json({
-        success: false,
-        message: "OTP not found or expired"
-      });
-    }
-    // เช็คเวลาหมดอายุ
-    if (Date.now() > storedOTP.expiresAt) {
-      delete otpStore[normalizedEmail];
+    const result = await db.query(
+      `DELETE FROM otp_codes
+       WHERE email = $1 AND otp = $2 AND expires_at > NOW()
+       RETURNING otp_id`,
+      [normalizedEmail, otp]
+    );
 
-      return res.status(400).json({
-        success: false,
-        message: "OTP has expired"
-      });
-    }
-    // เช็ค OTP
-    if (storedOTP.otp === otp.toString()) {
-      delete otpStore[normalizedEmail];
+    // PostgreSQL ตรวจสอบ expires_at ทำให้ OTP ที่หมดอายุไม่สามารถใช้งานได้
+    if (result.rowCount === 1) {
 
       return res.status(200).json({
         success: true,
         message: "OTP Verified Successfully"
       });
     }
+    await db.query(
+      "DELETE FROM otp_codes WHERE email = $1 AND expires_at <= NOW()",
+      [normalizedEmail]
+    );
+
     return res.status(400).json({
       success: false,
-      message: "Invalid OTP"
+      message: "Invalid or expired OTP"
     });
   } catch (error) {
     console.log(error);
@@ -180,7 +177,7 @@ app.post("/api/verify-otp", (req, res) => {
   }
 });
 
-// เรียก email จาก database
+// ส่งข้อมูลโปรไฟล์ที่เปิดเผยได้ของผู้ใช้จากอีเมล
 app.get("/api/users/:email", async (req, res) => {
   try {
     const { email } = req.params;
@@ -215,6 +212,16 @@ app.get("/api/users/:email", async (req, res) => {
     });
   }
 });
+
+// ลบ OTP ที่หมดอายุเป็นระยะ เพื่อไม่ให้ตารางเก็บรหัสเก่าไว้
+const cleanupExpiredOtps = () => {
+  db.query("DELETE FROM otp_codes WHERE expires_at <= NOW()")
+    .catch((error) => console.error("Error cleaning up OTPs:", error));
+};
+
+const otpCleanupTimer = setInterval(cleanupExpiredOtps, 60 * 1000);
+// ไม่ให้ timer นี้เป็นเหตุให้โปรเซส Node.js ทำงานค้างเพียงอย่างเดียว
+otpCleanupTimer.unref();
 //   const option = {
 //     from: "ssank2716@gmail.com",
 //     to: "", //ถึงใคร
@@ -241,9 +248,21 @@ app.get("/api/users/:email", async (req, res) => {
 //     }
 //   });
 // });
+// เปิดให้ใช้งานเอกสาร OpenAPI แบบโต้ตอบได้
+app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec))
 
 const startServer = async () => {
   try {
+    // ตรวจสอบและสร้างตาราง OTP หากยังไม่มีตอนเริ่ม backend
+    await db.query(`
+      CREATE TABLE IF NOT EXISTS otp_codes (
+        otp_id BIGSERIAL PRIMARY KEY,
+        email VARCHAR(255) NOT NULL,
+        otp VARCHAR(6) NOT NULL,
+        expires_at TIMESTAMPTZ NOT NULL,
+        created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
     await db.query(
       "ALTER TABLE users ADD COLUMN IF NOT EXISTS profile_image TEXT"
     );
