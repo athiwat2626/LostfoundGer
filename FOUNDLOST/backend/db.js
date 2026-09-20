@@ -1,4 +1,5 @@
 const { Pool } = require("pg");
+require("dotenv").config();
 
 if (!process.env.DB_PASSWORD) {
   throw new Error("DB_PASSWORD must be set in backend/.env");
@@ -7,7 +8,7 @@ if (!process.env.DB_PASSWORD) {
 // Configure these values in backend/.env (see .env.example).
 const pool = new Pool({
   host: process.env.DB_HOST || "localhost",
-  port: Number(process.env.DB_PORT || 5432),
+  port: Number(process.env.DB_PORT || 5433),
   user: process.env.DB_USER || "postgres",
   password: process.env.DB_PASSWORD,
   database: process.env.DB_NAME || "foundlost_db",
@@ -19,5 +20,14 @@ const pool = new Pool({
 pool.on("error", (error) => {
   console.error("Unexpected PostgreSQL pool error:", error);
 });
+pool.connect()
+  .then((client) => {
+    console.log("PostgreSQL connected successfully!");
+    client.release();
+  })
+  .catch((error) => {
+    console.error("Database connection error:", error);
+  });
+
 
 module.exports = pool;

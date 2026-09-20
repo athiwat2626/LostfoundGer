@@ -43,7 +43,7 @@ const validateItem = (body, dateField, locationField) => {
     ["item_name", text(body.item_name, "item_name", { required: true, maxLength: 255 })],
     ["category", text(body.category, "category", { maxLength: 100 })],
     ["item_color", text(body.item_color, "item_color", { maxLength: 100 })],
-    [locationField, text(body[locationField], locationField, { maxLength: 255 })],
+    [locationField, text(body[locationField], locationField, { required: true, maxLength: 255 })],
     ["description", text(body.description, "description", { maxLength: 5_000 })],
     ["deposit_location", text(body.deposit_location, "deposit_location", { maxLength: 255 })],
   ];

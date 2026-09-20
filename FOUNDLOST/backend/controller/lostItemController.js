@@ -1,5 +1,6 @@
 const db = require("../db");
 const { validateItem } = require("../validation");
+const { sendLineNotification } = require("../services/lineNotification");
 
 // เพิ่มข้อมูล Lost Item ลงในฐานข้อมูล
 const createLostItems = async (req, res) => {
@@ -17,16 +18,19 @@ const createLostItems = async (req, res) => {
     description,
     deposit_location,
   } = validation.value;
+  
+  const student_id = req.body.student_id?.trim() || null;
   const image_url = req.file
     ? `/assets/lostUploads/${req.file.filename}`
     : null;
 
   try {
     const result = await db.query(
-      `INSERT INTO lost_items (image_url, lost_date, item_name, category, item_color, lost_location, description, deposit_location)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+      `INSERT INTO lost_items (student_id, image_url, lost_date, item_name, category, item_color, lost_location, description, deposit_location)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
          RETURNING item_id`,
       [
+        student_id,
         image_url,
         lost_date,
         item_name,
@@ -37,6 +41,12 @@ const createLostItems = async (req, res) => {
         deposit_location,
       ],
     );
+
+    sendLineNotification(
+      `แจ้งเตือน: มีผู้รายงานของหายใหม่\nสิ่งของ: ${item_name}\nสถานที่หาย: ${lost_location}`,
+    ).catch((notificationError) => {
+      console.error("LINE notification failed:", notificationError.message);
+    });
 
     res.status(201).json({ item_id: result.rows[0].item_id });
   } catch (error) {

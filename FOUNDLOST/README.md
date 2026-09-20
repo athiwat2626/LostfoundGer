@@ -1,4 +1,35 @@
-# React + Vite
+# FOUND&LOST
+
+ระบบรายงานและค้นหาของหาย แยกส่วน frontend และ backend ออกจากกัน
+
+## โครงสร้าง
+
+- `frontend/` React + Vite application
+- `backend/` Express API + PostgreSQL integration
+
+## เริ่มใช้งาน
+
+ติดตั้ง dependencies ของ frontend:
+
+```powershell
+npm --prefix frontend install
+```
+
+เปิด frontend:
+
+```powershell
+npm --prefix frontend run dev
+```
+
+เปิด backend ในอีก terminal:
+
+```powershell
+npm --prefix backend run dev
+```
+
+Frontend: `http://localhost:5173`
+
+Backend: `http://localhost:3000`
 
 This template provides a minimal setup to get React working in Vite with HMR and some Oxlint rules.
 
