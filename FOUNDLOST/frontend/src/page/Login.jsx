@@ -1,115 +1,173 @@
-import React, { useState } from "react";
+import { useState } from "react";
 import axios from "axios";
-import { useLocation, useNavigate } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
+import { ChevronLeft, KeyRound, ShieldCheck } from "lucide-react";
+import AuthShell from "../component/AuthShell";
+import { API_URL } from "../component/itemUtils";
+
+const inputClass =
+  "w-full rounded-full border-2 border-brand/70 bg-white/90 py-2.5 pl-11 pr-4 text-sm text-slate-800 placeholder-slate-400 outline-none transition focus:border-brand focus:ring-4 focus:ring-brand/15";
+const primaryButtonClass =
+  "w-full rounded-full gradient-primary py-3 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-60";
+
+// รับเฉพาะ path ภายในเว็บ (กันการพาไปเว็บอื่นหลังเข้าสู่ระบบ)
+const safeRedirect = (from) =>
+  typeof from === "string" && from.startsWith("/") && !from.startsWith("//") && !from.startsWith("/login") ? from : "/home";
 
 const Login = () => {
-    const navigate = useNavigate();
-    const location = useLocation();
-    const [email, setEmail] = useState("");
-    const [otp, setOtp] = useState("");
-    const [message, setMessage] = useState(location.state?.message || "");
-    const [messageOtp, setMessageOtp] = useState("");
+  const navigate = useNavigate();
+  const location = useLocation();
+  const redirectTo = safeRedirect(location.state?.from);
+  const [step, setStep] = useState("email"); // "email" → "otp"
+  const [email, setEmail] = useState("");
+  const [otp, setOtp] = useState("");
+  const [notice, setNotice] = useState(location.state?.message || "");
+  const [error, setError] = useState("");
+  const [busy, setBusy] = useState(false);
 
-    // ส่ง OTP
-    const sendOTP = async () => {
-        try {
-            localStorage.removeItem("isLoggedIn");
-            const response = await axios.post(
-                "http://localhost:3000/api/send-otp",
-                {
-                    email: email
-                },
-            );
-            if (response.data.success) {
-                setMessage("ส่ง OTP สำเร็จแล้ว");
-            }
-            console.log(response.data);
+  // ส่ง OTP ไปที่อีเมล แล้วไปขั้นตอนกรอกรหัส
+  const sendOTP = async (event) => {
+    event?.preventDefault();
+    setError("");
+    setNotice("");
+    setBusy(true);
+    try {
+      localStorage.removeItem("isLoggedIn");
+      await axios.post(`${API_URL}/api/send-otp`, { email });
+      setStep("otp");
+      setOtp("");
+      setNotice(`ส่งรหัส OTP ไปที่ ${email} แล้ว`);
+    } catch (err) {
+      setError(err.response?.data?.message || "ไม่สามารถส่ง OTP ได้");
+    } finally {
+      setBusy(false);
+    }
+  };
 
-        } catch (error) {
-            console.log(error.response?.data || error.message);
-            setMessage(
-                error.response?.data?.message || "ไม่สามารถส่ง OTP ได้"
-            );
-        }
-    };
+  // ตรวจรหัส OTP และบันทึกสถานะเข้าสู่ระบบ
+  const verifyOTP = async (event) => {
+    event.preventDefault();
+    setError("");
+    setBusy(true);
+    try {
+      const response = await axios.post(`${API_URL}/api/verify-otp`, { email, otp });
+      localStorage.setItem("isLoggedIn", "true");
+      localStorage.setItem("email", email);
+      localStorage.setItem("student_id", response.data.student_id || "unknown");
+      if (response.data.token) localStorage.setItem("userToken", response.data.token);
+      setNotice("OTP ถูกต้อง กำลังเข้าสู่ระบบ...");
+      setTimeout(() => navigate(redirectTo, { replace: true }), 2000);
+    } catch (err) {
+      setError(err.response?.data?.message === "Invalid or expired OTP"
+        ? "OTP ไม่ถูกต้องหรือหมดอายุ"
+        : err.response?.data?.message || "OTP ไม่ถูกต้อง");
+      setBusy(false);
+    }
+  };
 
-    // Verify OTP
-    const verifyOTP = async () => {
-        try {
-            const response = await axios.post(
-                "http://localhost:3000/api/verify-otp",
-                {
-                    email: email,
-                    otp: otp
-                }
-            );
-            console.log(response.data);
-            localStorage.setItem("isLoggedIn", "true");
-            localStorage.setItem("email", email);
-            localStorage.setItem("student_id", response.data.student_id || "unknown");
-            setMessageOtp("OTP ถูกต้อง");
+  const backToEmail = () => {
+    setStep("email");
+    setError("");
+    setNotice("");
+  };
 
-            setTimeout(() => {
-              navigate("/home");
-            }, 2000);
-        } catch (error) {
-            console.log(error.response?.data || error.messageOtp);
-            setMessageOtp(
-                error.response?.data?.messageOtp || " OTP ไม่ถูกต้อง"
-            );
-        }
-    };
+  return (
+    <AuthShell>
+      {step === "email" ? (
+        <form onSubmit={sendOTP} className="space-y-5">
+          <h1 className="text-2xl font-bold text-slate-900">ลงชื่อเข้าใช้</h1>
 
+          <div>
+            <label htmlFor="login-email" className="mb-2 block text-base font-semibold text-slate-800">
+              อีเมล
+            </label>
+            <div className="relative">
+              <KeyRound size={18} className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-slate-500" />
+              <input
+                id="login-email"
+                type="email"
+                required
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="example@gmail.com"
+                className={inputClass}
+              />
+            </div>
+          </div>
 
-    return (
-        <main className="grid min-h-screen place-items-center bg-[#f7f3ea] bg-dot-pattern p-6">
-            <section className="w-full max-w-sm rounded-2xl bg-white p-8 shadow-lg">
-                <h1 className="mb-2 text-2xl font-bold text-slate-800">Login</h1>
-                <p className="mb-5 text-slate-500">Enter your email to receive an OTP.</p>
-                <input
-                    className="mb-3 w-full rounded-lg border border-slate-300 px-3 py-3 outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-200"
-                    type="email"
-                    placeholder="Email"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                />
+          <button type="submit" disabled={busy} className={primaryButtonClass}>
+            {busy ? "กำลังส่งรหัส..." : "ลงชื่อเข้าใช้"}
+          </button>
+        </form>
+      ) : (
+        <form onSubmit={verifyOTP} className="space-y-5">
+          <h1 className="flex items-center gap-2 text-2xl font-bold text-slate-900">
+            <button type="button" onClick={backToEmail} aria-label="กลับไปแก้อีเมล" className="-ml-1 rounded-full p-1 hover:bg-white/60">
+              <ChevronLeft size={22} />
+            </button>
+            ยืนยันรหัส OTP
+          </h1>
 
-                <button onClick={sendOTP} className="w-full rounded-lg bg-emerald-600 px-4 py-3 font-medium text-white transition hover:bg-emerald-700">
-                    Send OTP
-                </button>
-                {message && (
-                    <p>{message}</p>
-                )}
+          <div>
+            <label htmlFor="login-otp" className="mb-2 block text-base font-semibold text-slate-800">
+              รหัส OTP 6 หลัก
+            </label>
+            <div className="relative">
+              <ShieldCheck size={18} className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-slate-500" />
+              <input
+                id="login-otp"
+                inputMode="numeric"
+                autoComplete="one-time-code"
+                maxLength={6}
+                required
+                value={otp}
+                onChange={(e) => setOtp(e.target.value.replace(/\D/g, ""))}
+                placeholder="000000"
+                className={`${inputClass} tracking-[0.5em]`}
+              />
+            </div>
+          </div>
 
-                <input
-                    className="mb-3 mt-5 w-full rounded-lg border border-slate-300 px-3 py-3 outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-200"
-                    type="text"
-                    placeholder="OTP 6 หลัก"
-                    value={otp}
-                    onChange={(e) => setOtp(e.target.value)}
-                />
+          <button type="submit" disabled={busy || otp.length !== 6} className={primaryButtonClass}>
+            {busy ? "กำลังตรวจสอบ..." : "ยืนยัน"}
+          </button>
 
-                <button onClick={verifyOTP} className="w-full rounded-lg border border-emerald-600 px-4 py-3 font-medium text-emerald-600 transition hover:bg-emerald-50">
-                    Verify OTP
-                </button>
-                {messageOtp && (
-                    <p>{messageOtp}</p>
-                )}
-                <p className="mt-5 text-center text-sm text-slate-500">
-                    ยังไม่มีบัญชี?{" "}
-                    <button type="button" onClick={() => navigate("/signup")} className="font-medium text-emerald-600 hover:underline">
-                        สมัครสมาชิก
-                    </button>
-                </p>
-                <p className="mt-2 text-center text-sm text-slate-500">
-                    เป็นแอดมิน?{" "}
-                    <button type="button" onClick={() => navigate("/admin/login")} className="font-medium text-emerald-600 hover:underline">
-                        เข้าสู่ระบบแอดมิน
-                    </button>
-                </p>
-            </section>
-        </main>
-    );
+          <p className="text-center text-sm text-slate-600">
+            ไม่ได้รับรหัส?{" "}
+            <button type="button" onClick={sendOTP} disabled={busy} className="font-semibold text-brand hover:underline">
+              ส่งรหัสอีกครั้ง
+            </button>
+          </p>
+        </form>
+      )}
+
+      {notice && (
+        <p role="status" className="mt-5 rounded-xl bg-white/70 px-3 py-2 text-center text-sm text-slate-800">
+          {notice}
+        </p>
+      )}
+      {error && (
+        <p role="alert" className="mt-5 rounded-xl bg-red-50 px-3 py-2 text-center text-sm text-red-600">
+          {error}
+        </p>
+      )}
+
+      <div className="mt-8 space-y-1 text-center text-sm text-slate-700">
+        <p>
+          ยังไม่มีบัญชี?{" "}
+          <Link to="/signup" className="font-semibold text-brand hover:underline">
+            สมัครสมาชิก
+          </Link>
+        </p>
+        <p>
+          เป็นแอดมิน?{" "}
+          <Link to="/admin/login" className="font-semibold text-brand hover:underline">
+            เข้าสู่ระบบแอดมิน
+          </Link>
+        </p>
+      </div>
+    </AuthShell>
+  );
 };
 
 export default Login;

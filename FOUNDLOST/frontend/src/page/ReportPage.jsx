@@ -1,7 +1,8 @@
 import { useState, useRef } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
-import { ArrowLeft, User, Star, X, ImagePlus, AlertTriangle } from "lucide-react";
-import axios from "axios";
+import { ArrowLeft, User, X, ImagePlus, AlertTriangle } from "lucide-react";
+import UserLayout from "../component/UserLayout";
+import userApi from "../component/userApi";
 
 const REASONS = [
   "การรายงานของหายปลอม",
@@ -27,7 +28,6 @@ export default function ReportPage() {
   const [error, setError] = useState("");
   const fileRef = useRef();
 
-  const studentId = localStorage.getItem("student_id") || "";
 
   const handleFiles = (files) => {
     const allowed = Array.from(files).slice(0, 3 - previews.length);
@@ -57,10 +57,9 @@ export default function ReportPage() {
       formData.append("item_type", itemType || "found");
       formData.append("reason", reason);
       formData.append("detail", detail);
-      if (studentId) formData.append("reporter_student_id", studentId);
       if (previews[0]) formData.append("evidence", previews[0].file);
 
-      const res = await axios.post("http://localhost:3000/report", formData, {
+      const res = await userApi.post("/report", formData, {
         headers: { "Content-Type": "multipart/form-data" },
       });
 
@@ -79,8 +78,8 @@ export default function ReportPage() {
   };
 
   return (
-    <div className="min-h-screen bg-[#f7f3ea]">
-      <div className="max-w-2xl mx-auto px-4 py-8">
+    <UserLayout>
+      <div className="mx-auto mt-8 max-w-2xl">
         {/* Back */}
         <button
           onClick={() => navigate(-1)}
@@ -98,7 +97,7 @@ export default function ReportPage() {
         {/* Reported user card */}
         {(itemName || reportedUser) && (
           <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-4 flex items-center gap-4 mb-6">
-            <div className="w-12 h-12 rounded-full bg-emerald-100 flex items-center justify-center text-emerald-600 shrink-0">
+            <div className="w-12 h-12 rounded-full bg-brand-50 flex items-center justify-center text-brand shrink-0">
               <User size={24} />
             </div>
             <div className="flex-1 min-w-0">
@@ -109,12 +108,6 @@ export default function ReportPage() {
                 <p className="text-xs text-slate-500 truncate mt-0.5">รายการ: {itemName}</p>
               )}
             </div>
-            <div className="flex items-center gap-0.5 text-amber-400">
-              {[...Array(5)].map((_, i) => (
-                <Star key={i} size={14} fill="currentColor" />
-              ))}
-            </div>
-            <span className="text-sm font-semibold text-slate-600 ml-1">85 / 100</span>
           </div>
         )}
 
@@ -130,7 +123,7 @@ export default function ReportPage() {
                   key={r}
                   className={`flex items-center gap-3 p-3 rounded-xl cursor-pointer border transition-colors ${
                     reason === r
-                      ? "border-emerald-500 bg-emerald-50"
+                      ? "border-brand bg-brand-50"
                       : "border-transparent hover:bg-slate-50"
                   }`}
                 >
@@ -140,7 +133,7 @@ export default function ReportPage() {
                     value={r}
                     checked={reason === r}
                     onChange={() => setReason(r)}
-                    className="accent-emerald-600 w-4 h-4 shrink-0"
+                    className="accent-brand w-4 h-4 shrink-0"
                   />
                   <span className="text-sm text-slate-700">{r}</span>
                 </label>
@@ -159,7 +152,7 @@ export default function ReportPage() {
               onChange={(e) => setDetail(e.target.value.slice(0, 500))}
               rows={4}
               placeholder="อธิบายรายละเอียดเพิ่มเติม..."
-              className="w-full text-sm text-slate-700 placeholder-slate-400 bg-slate-50 rounded-xl px-4 py-3 outline-none resize-none focus:ring-2 focus:ring-emerald-400 transition"
+              className="w-full text-sm text-slate-700 placeholder-slate-400 bg-slate-50 rounded-xl px-4 py-3 outline-none resize-none focus:ring-2 focus:ring-brand-soft transition"
             />
           </div>
 
@@ -189,7 +182,7 @@ export default function ReportPage() {
                   <button
                     type="button"
                     onClick={() => fileRef.current?.click()}
-                    className="w-20 h-20 rounded-xl border-2 border-dashed border-slate-300 flex items-center justify-center text-slate-400 hover:border-emerald-400 hover:text-emerald-400 transition-colors"
+                    className="w-20 h-20 rounded-xl border-2 border-dashed border-slate-300 flex items-center justify-center text-slate-400 hover:border-brand-soft hover:text-brand-soft transition-colors"
                   >
                     <ImagePlus size={20} />
                   </button>
@@ -201,7 +194,7 @@ export default function ReportPage() {
               <button
                 type="button"
                 onClick={() => fileRef.current?.click()}
-                className="w-full border-2 border-dashed border-slate-200 rounded-xl py-6 flex flex-col items-center gap-2 text-slate-400 hover:border-emerald-400 hover:text-emerald-500 transition-colors"
+                className="w-full border-2 border-dashed border-slate-200 rounded-xl py-6 flex flex-col items-center gap-2 text-slate-400 hover:border-brand-soft hover:text-brand transition-colors"
               >
                 <ImagePlus size={24} />
                 <span className="text-xs">คลิกเพื่อเลือกรูปภาพ</span>
@@ -238,12 +231,12 @@ export default function ReportPage() {
           <button
             type="submit"
             disabled={submitting}
-            className="w-full bg-emerald-600 hover:bg-emerald-700 disabled:opacity-60 text-white font-semibold py-3.5 rounded-xl transition-colors text-sm"
+            className="w-full gradient-primary disabled:opacity-60 text-white font-semibold py-3.5 rounded-xl transition-colors text-sm"
           >
             {submitting ? "กำลังส่ง..." : "ส่งรายงาน"}
           </button>
         </form>
       </div>
-    </div>
+    </UserLayout>
   );
 }

@@ -1,6 +1,8 @@
 const express = require("express");
 const multer = require("multer");
 const path = require("path");
+const crypto = require("crypto");
+const { userOrAdminAuth } = require("../middleware/userAuth");
 const lostItemController = require("../controller/lostItemController");
 
 const uploadsDir = path.join(__dirname,"..", "assets", "lostUploads");
@@ -9,7 +11,8 @@ const storage = multer.diskStorage({
         cb(null, uploadsDir);
     },
     filename: (req, file, cb) => {
-        const uniqueSuffix = Date.now() + path.extname(file.originalname);
+        // เวลา + ค่าสุ่ม ป้องกันไฟล์ทับกันเมื่ออัปโหลดพร้อมกัน
+        const uniqueSuffix = `${Date.now()}-${crypto.randomBytes(4).toString("hex")}${path.extname(file.originalname)}`;
         cb(null, uniqueSuffix);
     },
 });
@@ -26,7 +29,7 @@ const upload = multer({
 });
 const router = express.Router();
 
-router.post("/", upload.single("image"), lostItemController.createLostItems);
+router.post("/", userOrAdminAuth, upload.single("image"), lostItemController.createLostItems);
 router.get("/",lostItemController.getLostItems)
 
 module.exports = router;

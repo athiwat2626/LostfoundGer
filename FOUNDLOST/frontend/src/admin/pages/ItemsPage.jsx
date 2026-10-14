@@ -1,8 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import axios from "axios";
 import { Trash2, Pencil, Plus, X, ImagePlus, Search as SearchIcon } from "lucide-react";
 import adminApi from "../api/adminApi";
-import { colorOptions } from "../../data/colorOptions";
+import { API_URL } from "../../component/itemUtils";
 
 const CATEGORIES = ["กระเป๋า", "เครื่องประดับ", "อุปกรณ์อิเล็กทรอนิกส์", "เอกสาร", "อื่น ๆ"];
 
@@ -13,7 +12,6 @@ const EditItemModal = ({ item, type, dateField, locationField, dateLabel, locati
   const [form, setForm] = useState({
     item_name: item.item_name || "",
     category: item.category || "",
-    item_color: item.item_color || "",
     [locationField]: item[locationField] || "",
     [dateField]: toDateInputValue(item[dateField]),
     description: item.description || "",
@@ -39,8 +37,8 @@ const EditItemModal = ({ item, type, dateField, locationField, dateLabel, locati
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-      <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-xl max-h-[90vh] overflow-y-auto">
+    <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 sm:items-center sm:p-4">
+      <div className="w-full max-w-md max-h-[92vh] overflow-y-auto rounded-t-3xl bg-white p-5 pb-[max(1.25rem,env(safe-area-inset-bottom))] shadow-xl sm:rounded-2xl sm:p-6">
         <div className="mb-4 flex items-center justify-between">
           <h2 className="text-lg font-bold text-slate-800">แก้ไขรายการ</h2>
           <button onClick={onClose} className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100">
@@ -55,37 +53,27 @@ const EditItemModal = ({ item, type, dateField, locationField, dateLabel, locati
               value={form.item_name}
               onChange={(e) => setField("item_name", e.target.value)}
               required
-              className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none focus:border-teal-500"
+              className="w-full rounded-lg border border-slate-300 px-3 py-2.5 text-base outline-none focus:border-brand sm:py-2 sm:text-sm"
             />
           </div>
 
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="mb-1 block text-xs font-medium text-slate-500">หมวดหมู่</label>
-              <input
-                value={form.category}
-                onChange={(e) => setField("category", e.target.value)}
-                className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none focus:border-teal-500"
-              />
-            </div>
-            <div>
-              <label className="mb-1 block text-xs font-medium text-slate-500">สี</label>
-              <input
-                value={form.item_color}
-                onChange={(e) => setField("item_color", e.target.value)}
-                className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none focus:border-teal-500"
-              />
-            </div>
+          <div>
+            <label className="mb-1 block text-xs font-medium text-slate-500">หมวดหมู่</label>
+            <input
+              value={form.category}
+              onChange={(e) => setField("category", e.target.value)}
+              className="w-full rounded-lg border border-slate-300 px-3 py-2.5 text-base outline-none focus:border-brand sm:py-2 sm:text-sm"
+            />
           </div>
 
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <div>
               <label className="mb-1 block text-xs font-medium text-slate-500">{locationLabel}</label>
               <input
                 value={form[locationField]}
                 onChange={(e) => setField(locationField, e.target.value)}
                 required
-                className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none focus:border-teal-500"
+                className="w-full rounded-lg border border-slate-300 px-3 py-2.5 text-base outline-none focus:border-brand sm:py-2 sm:text-sm"
               />
             </div>
             <div>
@@ -95,7 +83,7 @@ const EditItemModal = ({ item, type, dateField, locationField, dateLabel, locati
                 value={form[dateField]}
                 onChange={(e) => setField(dateField, e.target.value)}
                 required
-                className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none focus:border-teal-500"
+                className="w-full rounded-lg border border-slate-300 px-3 py-2.5 text-base outline-none focus:border-brand sm:py-2 sm:text-sm"
               />
             </div>
           </div>
@@ -105,7 +93,7 @@ const EditItemModal = ({ item, type, dateField, locationField, dateLabel, locati
             <input
               value={form.deposit_location}
               onChange={(e) => setField("deposit_location", e.target.value)}
-              className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none focus:border-teal-500"
+              className="w-full rounded-lg border border-slate-300 px-3 py-2.5 text-base outline-none focus:border-brand sm:py-2 sm:text-sm"
             />
           </div>
 
@@ -115,7 +103,7 @@ const EditItemModal = ({ item, type, dateField, locationField, dateLabel, locati
               value={form.description}
               onChange={(e) => setField("description", e.target.value)}
               rows={3}
-              className="w-full resize-none rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none focus:border-teal-500"
+              className="w-full resize-none rounded-lg border border-slate-300 px-3 py-2.5 text-base outline-none focus:border-brand sm:py-2 sm:text-sm"
             />
           </div>
 
@@ -134,7 +122,7 @@ const EditItemModal = ({ item, type, dateField, locationField, dateLabel, locati
             <button
               type="submit"
               disabled={submitting}
-              className="rounded-xl bg-teal-600 py-2.5 text-sm font-medium text-white hover:bg-teal-700 disabled:opacity-60"
+              className="rounded-xl gradient-primary py-2.5 text-sm font-medium text-white disabled:opacity-60"
             >
               {submitting ? "กำลังบันทึก..." : "บันทึก"}
             </button>
@@ -151,7 +139,6 @@ const AddItemModal = ({ type, dateField, locationField, dateLabel, locationLabel
   const [form, setForm] = useState({
     item_name: "",
     category: "",
-    item_color: "",
     [locationField]: "",
     [dateField]: "",
     description: "",
@@ -179,7 +166,7 @@ const AddItemModal = ({ type, dateField, locationField, dateLabel, locationLabel
       Object.entries(form).forEach(([key, value]) => data.append(key, value || ""));
       if (imageFile) data.append("image", imageFile);
 
-      await axios.post(`http://localhost:3000/${type === "found" ? "foundItem" : "lostItem"}`, data);
+      await adminApi.post(`/${type === "found" ? "foundItem" : "lostItem"}`, data);
       onCreated();
     } catch (err) {
       setError(err.response?.data?.error || "เพิ่มรายการไม่สำเร็จ");
@@ -189,8 +176,8 @@ const AddItemModal = ({ type, dateField, locationField, dateLabel, locationLabel
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-      <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-xl max-h-[90vh] overflow-y-auto">
+    <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 sm:items-center sm:p-4">
+      <div className="w-full max-w-md max-h-[92vh] overflow-y-auto rounded-t-3xl bg-white p-5 pb-[max(1.25rem,env(safe-area-inset-bottom))] shadow-xl sm:rounded-2xl sm:p-6">
         <div className="mb-4 flex items-center justify-between">
           <h2 className="text-lg font-bold text-slate-800">เพิ่มรายการใหม่</h2>
           <button onClick={onClose} className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100">
@@ -202,7 +189,7 @@ const AddItemModal = ({ type, dateField, locationField, dateLabel, locationLabel
           <button
             type="button"
             onClick={() => fileInputRef.current?.click()}
-            className="relative flex h-28 w-full items-center justify-center overflow-hidden rounded-xl border-2 border-dashed border-slate-300 text-slate-400 hover:border-teal-400 hover:text-teal-500"
+            className="relative flex h-28 w-full items-center justify-center overflow-hidden rounded-xl border-2 border-dashed border-slate-300 text-slate-400 hover:border-brand-soft hover:text-brand"
           >
             {previewUrl ? (
               <img src={previewUrl} alt="preview" className="absolute inset-0 h-full w-full object-cover" />
@@ -227,47 +214,32 @@ const AddItemModal = ({ type, dateField, locationField, dateLabel, locationLabel
               value={form.item_name}
               onChange={(e) => setField("item_name", e.target.value)}
               required
-              className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none focus:border-teal-500"
+              className="w-full rounded-lg border border-slate-300 px-3 py-2.5 text-base outline-none focus:border-brand sm:py-2 sm:text-sm"
             />
           </div>
 
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="mb-1 block text-xs font-medium text-slate-500">หมวดหมู่</label>
-              <select
-                value={form.category}
-                onChange={(e) => setField("category", e.target.value)}
-                className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none focus:border-teal-500"
-              >
-                <option value="">เลือกหมวดหมู่</option>
-                {CATEGORIES.map((c) => (
-                  <option key={c}>{c}</option>
-                ))}
-              </select>
-            </div>
-            <div>
-              <label className="mb-1 block text-xs font-medium text-slate-500">สี</label>
-              <select
-                value={form.item_color}
-                onChange={(e) => setField("item_color", e.target.value)}
-                className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none focus:border-teal-500"
-              >
-                <option value="">เลือกสี</option>
-                {colorOptions.map((c) => (
-                  <option key={c.name} value={c.name}>{c.name}</option>
-                ))}
-              </select>
-            </div>
+          <div>
+            <label className="mb-1 block text-xs font-medium text-slate-500">หมวดหมู่</label>
+            <select
+              value={form.category}
+              onChange={(e) => setField("category", e.target.value)}
+              className="w-full rounded-lg border border-slate-300 px-3 py-2.5 text-base outline-none focus:border-brand sm:py-2 sm:text-sm"
+            >
+              <option value="">เลือกหมวดหมู่</option>
+              {CATEGORIES.map((c) => (
+                <option key={c}>{c}</option>
+              ))}
+            </select>
           </div>
 
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <div>
               <label className="mb-1 block text-xs font-medium text-slate-500">{locationLabel}</label>
               <input
                 value={form[locationField]}
                 onChange={(e) => setField(locationField, e.target.value)}
                 required
-                className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none focus:border-teal-500"
+                className="w-full rounded-lg border border-slate-300 px-3 py-2.5 text-base outline-none focus:border-brand sm:py-2 sm:text-sm"
               />
             </div>
             <div>
@@ -277,7 +249,7 @@ const AddItemModal = ({ type, dateField, locationField, dateLabel, locationLabel
                 value={form[dateField]}
                 onChange={(e) => setField(dateField, e.target.value)}
                 required
-                className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none focus:border-teal-500"
+                className="w-full rounded-lg border border-slate-300 px-3 py-2.5 text-base outline-none focus:border-brand sm:py-2 sm:text-sm"
               />
             </div>
           </div>
@@ -288,7 +260,7 @@ const AddItemModal = ({ type, dateField, locationField, dateLabel, locationLabel
               value={form.student_id}
               onChange={(e) => setField("student_id", e.target.value)}
               placeholder="เว้นว่างได้หากไม่ทราบ"
-              className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none focus:border-teal-500"
+              className="w-full rounded-lg border border-slate-300 px-3 py-2.5 text-base outline-none focus:border-brand sm:py-2 sm:text-sm"
             />
           </div>
 
@@ -297,7 +269,7 @@ const AddItemModal = ({ type, dateField, locationField, dateLabel, locationLabel
             <input
               value={form.deposit_location}
               onChange={(e) => setField("deposit_location", e.target.value)}
-              className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none focus:border-teal-500"
+              className="w-full rounded-lg border border-slate-300 px-3 py-2.5 text-base outline-none focus:border-brand sm:py-2 sm:text-sm"
             />
           </div>
 
@@ -307,7 +279,7 @@ const AddItemModal = ({ type, dateField, locationField, dateLabel, locationLabel
               value={form.description}
               onChange={(e) => setField("description", e.target.value)}
               rows={3}
-              className="w-full resize-none rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none focus:border-teal-500"
+              className="w-full resize-none rounded-lg border border-slate-300 px-3 py-2.5 text-base outline-none focus:border-brand sm:py-2 sm:text-sm"
             />
           </div>
 
@@ -326,7 +298,7 @@ const AddItemModal = ({ type, dateField, locationField, dateLabel, locationLabel
             <button
               type="submit"
               disabled={submitting}
-              className="rounded-xl bg-teal-600 py-2.5 text-sm font-medium text-white hover:bg-teal-700 disabled:opacity-60"
+              className="rounded-xl gradient-primary py-2.5 text-sm font-medium text-white disabled:opacity-60"
             >
               {submitting ? "กำลังเพิ่ม..." : "เพิ่มรายการ"}
             </button>
@@ -381,27 +353,27 @@ const ItemsPage = ({ type, title }) => {
 
   return (
     <div>
-      <div className="mb-4 flex items-start justify-between gap-3">
+      <div className="mb-4 flex items-center justify-between gap-3">
         <div>
-          <h1 className="text-xl font-bold text-slate-800 mb-1">{title}</h1>
+          <h1 className="text-xl font-bold text-slate-900 mb-1 sm:text-2xl">{title}</h1>
           <p className="text-sm text-slate-500">ทั้งหมด {total} รายการ</p>
         </div>
         <button
           onClick={() => setShowAddModal(true)}
-          className="flex items-center gap-1.5 rounded-lg bg-teal-600 px-3.5 py-2 text-sm font-medium text-white hover:bg-teal-700"
+          className="flex items-center gap-1.5 rounded-lg gradient-primary px-3.5 py-2 text-sm font-medium text-white"
         >
           <Plus size={16} />
           เพิ่มรายการ
         </button>
       </div>
 
-      <div className="mb-4 relative max-w-xs">
+      <div className="mb-4 relative sm:max-w-xs">
         <SearchIcon size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
         <input
           value={q}
           onChange={(e) => setQ(e.target.value)}
           placeholder="ค้นหาชื่อสิ่งของ..."
-          className="w-full rounded-lg border border-slate-200 bg-white pl-9 pr-3 py-2 text-sm outline-none focus:border-teal-500"
+          className="w-full rounded-xl border border-slate-200 bg-white pl-9 pr-3 py-2.5 text-base outline-none focus:border-brand sm:rounded-lg sm:py-2 sm:text-sm"
         />
       </div>
 
@@ -411,7 +383,39 @@ const ItemsPage = ({ type, title }) => {
         </p>
       )}
 
-      <div className="overflow-x-auto rounded-2xl border border-slate-100 bg-white shadow-sm">
+      {/* มือถือ: แสดงเป็นการ์ด */}
+      <ul className="space-y-2.5 md:hidden">
+        {!loading && items.length === 0 && (
+          <li className="rounded-2xl border border-slate-100 bg-white py-8 text-center text-sm text-slate-400">ไม่พบรายการ</li>
+        )}
+        {items.map((item) => (
+          <li key={item.item_id} className="flex items-center gap-3 rounded-2xl border border-slate-100 bg-white p-3 shadow-sm">
+            {item.image_url ? (
+              <img src={`${API_URL}${item.image_url}`} alt="" className="h-14 w-14 shrink-0 rounded-xl object-cover" />
+            ) : (
+              <div className="h-14 w-14 shrink-0 rounded-xl bg-slate-100" />
+            )}
+            <div className="min-w-0 flex-1">
+              <p className="truncate text-sm font-semibold text-slate-800">{item.item_name}</p>
+              <p className="truncate text-xs text-slate-500">{item[locationField] || "-"}</p>
+              <p className="truncate text-xs text-slate-400">
+                {item.student_id || "ไม่ทราบเจ้าของ"} ·{" "}
+                {item[dateField] ? new Date(item[dateField]).toLocaleDateString("th-TH") : "-"}
+              </p>
+            </div>
+            <div className="flex shrink-0 flex-col gap-1">
+              <button onClick={() => setEditingItem(item)} className="rounded-lg p-2 text-brand hover:bg-brand-50" aria-label="แก้ไขรายการ">
+                <Pencil size={16} />
+              </button>
+              <button onClick={() => handleDelete(item.item_id)} className="rounded-lg p-2 text-red-500 hover:bg-red-50" aria-label="ลบรายการ">
+                <Trash2 size={16} />
+              </button>
+            </div>
+          </li>
+        ))}
+      </ul>
+
+      <div className="hidden overflow-x-auto rounded-2xl border border-slate-100 bg-white shadow-sm md:block">
         <table className="w-full text-sm">
           <thead>
             <tr className="border-b border-slate-100 text-left text-xs text-slate-400">
@@ -436,7 +440,7 @@ const ItemsPage = ({ type, title }) => {
                 <td className="px-4 py-3">
                   {item.image_url ? (
                     <img
-                      src={`http://localhost:3000${item.image_url}`}
+                      src={`${API_URL}${item.image_url}`}
                       alt=""
                       className="h-10 w-10 rounded-lg object-cover"
                     />
@@ -454,7 +458,7 @@ const ItemsPage = ({ type, title }) => {
                   <div className="flex justify-end gap-1">
                     <button
                       onClick={() => setEditingItem(item)}
-                      className="rounded-lg p-2 text-teal-600 hover:bg-teal-50"
+                      className="rounded-lg p-2 text-brand hover:bg-brand-50"
                       title="แก้ไขรายการ"
                     >
                       <Pencil size={16} />

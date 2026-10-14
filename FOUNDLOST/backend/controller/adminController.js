@@ -1,10 +1,24 @@
 const db = require("../db");
 const { validateItem } = require("../validation");
+const { findMatches } = require("../services/matching");
 
 const ITEM_TABLES = { found: "found_items", lost: "lost_items" };
 const ITEM_DATE_FIELD = { found: "found_date", lost: "lost_date" };
 const ITEM_LOCATION_FIELD = { found: "found_location", lost: "lost_location" };
 const VALID_DURATIONS = [3, 7, 30];
+
+// ชื่อการดำเนินการที่แสดงในลำดับเหตุการณ์ของรายงาน
+const ACTION_TIMELINE_LABEL = { dismissed: "ยกเลิกรายงาน", warning: "ออกคำเตือน", suspend: "ระงับบัญชี", ban: "แบนถาวร" };
+
+// เหตุผลการรายงานที่นับเป็น "เนื้อหาไม่เหมาะสม" บน Dashboard
+const CONTENT_REPORT_REASONS = ["เนื้อหาไม่เหมาะสม", "สแปม", "หลอกลวง / อื่นใด", "ทุจริต / ฉ้อโกง"];
+
+// ช่วงเวลาของกราฟแนวโน้ม: ปัดเวลาเป็นชั่วโมง/วันตามเวลาประเทศไทย
+const TREND_RANGES = {
+  "24h": { trunc: "hour", count: 24, step: "1 hour" },
+  "7d": { trunc: "day", count: 7, step: "1 day" },
+  "30d": { trunc: "day", count: 30, step: "1 day" },
+};
 
 // Resolves the reported item + reported user (via found_items/lost_items) for each report row.
 const REPORT_SELECT = `
@@ -36,7 +50,10 @@ const REPORT_SELECT = `
 // ─── GET /admin/dashboard/stats ────────────────────────────────────────────
 const getDashboardStats = async (_req, res) => {
   try {
-    const [users, foundItems, lostItems, pending, underReview, resolved, suspended, banned] =
+    const [
+      users, foundItems, lostItems, pending, underReview, resolved, suspended, banned,
+      postsThisMonth, newUsers24h, newUsersPrev24h, successfulReturns, flaggedContent,
+    ] =
       await Promise.all([
         db.query("SELECT COUNT(*)::int AS count FROM users"),
         db.query("SELECT COUNT(*)::int AS count FROM found_items"),
@@ -46,6 +63,23 @@ const getDashboardStats = async (_req, res) => {
         db.query("SELECT COUNT(*)::int AS count FROM reports WHERE status = 'resolved'"),
         db.query("SELECT COUNT(*)::int AS count FROM users WHERE suspended_until > NOW()"),
         db.query("SELECT COUNT(*)::int AS count FROM users WHERE is_banned = true"),
+        db.query(
+          `SELECT (
+             (SELECT COUNT(*) FROM found_items
+               WHERE created_at >= date_trunc('month', NOW() AT TIME ZONE 'Asia/Bangkok') AT TIME ZONE 'Asia/Bangkok')
+           + (SELECT COUNT(*) FROM lost_items
+               WHERE created_at >= date_trunc('month', NOW() AT TIME ZONE 'Asia/Bangkok') AT TIME ZONE 'Asia/Bangkok')
+           )::int AS count`
+        ),
+        db.query("SELECT COUNT(*)::int AS count FROM users WHERE created_at >= NOW() - INTERVAL '24 hours'"),
+        db.query(
+          "SELECT COUNT(*)::int AS count FROM users WHERE created_at >= NOW() - INTERVAL '48 hours' AND created_at < NOW() - INTERVAL '24 hours'"
+        ),
+        db.query("SELECT COALESCE(SUM(successful_returns), 0)::int AS count FROM users"),
+        db.query(
+          "SELECT COUNT(*)::int AS count FROM reports WHERE status IN ('pending', 'under_review') AND reason = ANY($1)",
+          [CONTENT_REPORT_REASONS]
+        ),
       ]);
 
     res.status(200).json({
@@ -59,10 +93,47 @@ const getDashboardStats = async (_req, res) => {
         resolvedReports: resolved.rows[0].count,
         suspendedUsers: suspended.rows[0].count,
         bannedUsers: banned.rows[0].count,
+        postsThisMonth: postsThisMonth.rows[0].count,
+        newUsers24h: newUsers24h.rows[0].count,
+        newUsersPrev24h: newUsersPrev24h.rows[0].count,
+        successfulReturns: successfulReturns.rows[0].count,
+        flaggedContent: flaggedContent.rows[0].count,
       },
     });
   } catch (error) {
     console.error("Error fetching dashboard stats:", error);
+    res.status(500).json({ success: false, message: "Internal server error" });
+  }
+};
+
+// ─── GET /admin/dashboard/trend?range=24h|7d|30d ───────────────────────────
+// จำนวนของหาย/ของพบที่แจ้งเข้ามาในแต่ละชั่วโมง (24h) หรือแต่ละวัน (7d, 30d)
+const getTrend = async (req, res) => {
+  const range = TREND_RANGES[req.query.range] ? req.query.range : "24h";
+  const { trunc, count, step } = TREND_RANGES[range];
+
+  try {
+    const result = await db.query(
+      `WITH bounds AS (
+         SELECT date_trunc($1, NOW() AT TIME ZONE 'Asia/Bangkok') AT TIME ZONE 'Asia/Bangkok' AS last_start
+       ),
+       buckets AS (
+         SELECT generate_series(last_start - ($2::int - 1) * $3::interval, last_start, $3::interval) AS start
+         FROM bounds
+       )
+       SELECT b.start AS bucket,
+         (SELECT COUNT(*)::int FROM lost_items
+           WHERE created_at >= b.start AND created_at < b.start + $3::interval) AS lost,
+         (SELECT COUNT(*)::int FROM found_items
+           WHERE created_at >= b.start AND created_at < b.start + $3::interval) AS found
+       FROM buckets b
+       ORDER BY b.start`,
+      [trunc, count, step]
+    );
+
+    res.status(200).json({ success: true, range, points: result.rows });
+  } catch (error) {
+    console.error("Error fetching dashboard trend:", error);
     res.status(500).json({ success: false, message: "Internal server error" });
   }
 };
@@ -167,13 +238,13 @@ const getReportById = async (req, res) => {
       report = { ...report, status: "under_review" };
     }
 
-    const timeline = [{ label: "Report submitted", at: report.created_at }];
+    const timeline = [{ label: "ส่งรายงาน", at: report.created_at }];
     if (report.status === "under_review" && !report.resolved_at) {
-      timeline.push({ label: "Assigned to review", at: report.created_at });
+      timeline.push({ label: "เริ่มตรวจสอบ", at: report.created_at });
     }
     if (report.resolved_at) {
-      const actor = report.resolved_by_email ? ` by ${report.resolved_by_email}` : "";
-      timeline.push({ label: `Action taken: ${report.action_taken || report.status}${actor}`, at: report.resolved_at });
+      const actor = report.resolved_by_email ? ` โดย ${report.resolved_by_email}` : "";
+      timeline.push({ label: `ดำเนินการ: ${ACTION_TIMELINE_LABEL[report.action_taken] || report.action_taken || report.status}${actor}`, at: report.resolved_at });
     }
 
     res.status(200).json({ success: true, report: { ...report, timeline } });
@@ -295,6 +366,62 @@ const getUsers = async (req, res) => {
     res.status(200).json({ success: true, users: result.rows, total: countResult.rows[0].count });
   } catch (error) {
     console.error("Error fetching admin users:", error);
+    res.status(500).json({ success: false, message: "Internal server error" });
+  }
+};
+
+// ─── GET /admin/users/:student_id ──────────────────────────────────────────
+// ข้อมูลผู้ใช้แบบละเอียด: โปรไฟล์ ช่องทางติดต่อ สถิติ และโพสต์ล่าสุด
+const getUserDetail = async (req, res) => {
+  const { student_id } = req.params;
+
+  try {
+    const userResult = await db.query(
+      `SELECT student_id, first_name, last_name, email, profile_image, phone, contact_email, preferred_contact,
+              created_at, successful_returns, suspended_until, is_banned, warning_count
+       FROM users WHERE student_id = $1`,
+      [student_id]
+    );
+    if (userResult.rows.length === 0) {
+      return res.status(404).json({ success: false, message: "User not found" });
+    }
+
+    const [posts, reportsAgainst, reportsMade] = await Promise.all([
+      db.query(
+        `SELECT * FROM (
+           SELECT 'found' AS type, item_id, item_name, category, found_date AS date, found_location AS location,
+                  image_url, created_at
+           FROM found_items WHERE student_id = $1
+           UNION ALL
+           SELECT 'lost' AS type, item_id, item_name, category, lost_date AS date, lost_location AS location,
+                  image_url, created_at
+           FROM lost_items WHERE student_id = $1
+         ) posts
+         ORDER BY created_at DESC
+         LIMIT 50`,
+        [student_id]
+      ),
+      db.query(
+        `SELECT COUNT(*)::int AS count FROM reports r
+         WHERE (r.item_type = 'found' AND r.reported_item_id IN (SELECT item_id FROM found_items WHERE student_id = $1))
+            OR (r.item_type = 'lost' AND r.reported_item_id IN (SELECT item_id FROM lost_items WHERE student_id = $1))`,
+        [student_id]
+      ),
+      db.query("SELECT COUNT(*)::int AS count FROM reports WHERE reporter_student_id = $1", [student_id]),
+    ]);
+
+    res.status(200).json({
+      success: true,
+      user: userResult.rows[0],
+      posts: posts.rows,
+      stats: {
+        totalPosts: posts.rows.length,
+        reportsAgainst: reportsAgainst.rows[0].count,
+        reportsMade: reportsMade.rows[0].count,
+      },
+    });
+  } catch (error) {
+    console.error("Error fetching user detail:", error);
     res.status(500).json({ success: false, message: "Internal server error" });
   }
 };
@@ -424,6 +551,31 @@ const updateItem = async (req, res) => {
   }
 };
 
+// ─── GET /admin/matches ─────────────────────────────────────────────────────
+// โพสต์ของหายที่ยังไม่ได้คืน พร้อมโพสต์ของพบที่อาจตรงกัน (ระบบจับคู่อัตโนมัติ)
+const getMatches = async (_req, res) => {
+  try {
+    const lost = await db.query(
+      `SELECT l.item_id, l.item_name, l.category, l.lost_date AS date, l.lost_location AS location,
+              l.image_url, l.student_id, l.created_at, u.first_name, u.last_name
+       FROM lost_items l LEFT JOIN users u ON u.student_id = l.student_id
+       WHERE l.status = 'open'
+       ORDER BY l.created_at DESC
+       LIMIT 50`
+    );
+
+    const results = [];
+    for (const item of lost.rows) {
+      const matches = await findMatches("lost", item, { limit: 3 });
+      if (matches.length > 0) results.push({ lost: { ...item, type: "lost" }, matches });
+    }
+    res.status(200).json({ success: true, results });
+  } catch (error) {
+    console.error("Error fetching matches:", error);
+    res.status(500).json({ success: false, message: "Internal server error" });
+  }
+};
+
 // ─── DELETE /admin/items/:type/:item_id ────────────────────────────────────
 const deleteItem = async (req, res) => {
   const { type, item_id } = req.params;
@@ -437,6 +589,7 @@ const deleteItem = async (req, res) => {
     if (result.rows.length === 0) {
       return res.status(404).json({ success: false, message: "Item not found" });
     }
+    await db.query("DELETE FROM claims WHERE item_type = $1 AND item_id = $2", [type, item_id]);
     res.status(200).json({ success: true });
   } catch (error) {
     console.error("Error deleting admin item:", error);
@@ -446,11 +599,14 @@ const deleteItem = async (req, res) => {
 
 module.exports = {
   getDashboardStats,
+  getTrend,
   getActivity,
   getReports,
   getReportById,
   moderateReport,
   getUsers,
+  getUserDetail,
+  getMatches,
   moderateUser,
   getItems,
   updateItem,

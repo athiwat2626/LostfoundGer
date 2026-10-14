@@ -1,12 +1,19 @@
 import { useState } from "react";
-import { useNavigate } from "react-router-dom";
-import { ShieldCheck, ArrowLeft } from "lucide-react";
+import { Link, useNavigate } from "react-router-dom";
+import { KeyRound, Lock, Eye, EyeOff, ArrowLeft } from "lucide-react";
 import adminApi from "./api/adminApi";
+import AuthShell from "../component/AuthShell";
+
+const inputClass =
+  "w-full rounded-full border-2 border-brand/70 bg-white/90 py-2.5 pl-11 text-sm text-slate-800 placeholder-slate-400 outline-none transition focus:border-brand focus:ring-4 focus:ring-brand/15";
+const labelClass = "mb-1.5 block text-xs font-semibold uppercase tracking-wide text-slate-700";
+const iconClass = "pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-slate-500";
 
 const AdminLogin = () => {
   const navigate = useNavigate();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState("");
   const [submitting, setSubmitting] = useState(false);
 
@@ -28,59 +35,81 @@ const AdminLogin = () => {
   };
 
   return (
-    <main className="grid min-h-screen place-items-center bg-slate-100 p-6">
-      <section className="w-full max-w-sm rounded-2xl bg-white p-8 shadow-lg">
-        <button
-          type="button"
-          onClick={() => navigate("/login")}
-          className="mb-4 flex items-center gap-1.5 text-sm text-slate-400 transition-colors hover:text-slate-600"
-        >
-          <ArrowLeft size={16} />
-          กลับหน้าแรก
-        </button>
+    <AuthShell>
+      <div className="text-center">
+        <h1 className="text-3xl font-bold text-brand">KU Lost &amp; Found</h1>
+      </div>
 
-        <div className="mb-5 flex items-center gap-2 text-teal-700">
-          <ShieldCheck size={24} />
-          <h1 className="text-2xl font-bold text-slate-800">Admin Login</h1>
+      <form onSubmit={handleSubmit} className="mt-6 space-y-4">
+        <div>
+          <label htmlFor="admin-email" className={labelClass}>
+            Username
+          </label>
+          <div className="relative">
+            <KeyRound size={18} className={iconClass} />
+            <input
+              id="admin-email"
+              type="email"
+              autoComplete="username"
+              placeholder="Administrative Email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              required
+              className={`${inputClass} pr-4`}
+            />
+          </div>
         </div>
-        <p className="mb-5 text-sm text-slate-500">
-          KU Lost&amp;Found Admin Control — เข้าสู่ระบบด้วยอีเมลและรหัสผ่านของแอดมิน
-        </p>
 
-        <form onSubmit={handleSubmit} className="space-y-3">
-          <input
-            className="w-full rounded-lg border border-slate-300 px-3 py-3 outline-none focus:border-teal-600 focus:ring-2 focus:ring-teal-200"
-            type="email"
-            placeholder="Admin Email"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            required
-          />
-          <input
-            className="w-full rounded-lg border border-slate-300 px-3 py-3 outline-none focus:border-teal-600 focus:ring-2 focus:ring-teal-200"
-            type="password"
-            placeholder="Password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            required
-          />
+        <div>
+          <label htmlFor="admin-password" className={labelClass}>
+            Password
+          </label>
+          <div className="relative">
+            <Lock size={18} className={iconClass} />
+            <input
+              id="admin-password"
+              type={showPassword ? "text" : "password"}
+              autoComplete="current-password"
+              placeholder="Password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              required
+              className={`${inputClass} pr-11`}
+            />
+            <button
+              type="button"
+              onClick={() => setShowPassword((v) => !v)}
+              aria-label={showPassword ? "ซ่อนรหัสผ่าน" : "แสดงรหัสผ่าน"}
+              className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-700"
+            >
+              {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+            </button>
+          </div>
+        </div>
 
-          {error && (
-            <p className="rounded-lg bg-red-50 border border-red-200 px-3 py-2 text-sm text-red-600">
-              {error}
-            </p>
-          )}
+        {error && (
+          <p role="alert" className="rounded-xl bg-red-50 px-3 py-2 text-center text-sm text-red-600">
+            {error}
+          </p>
+        )}
 
-          <button
-            type="submit"
-            disabled={submitting}
-            className="w-full rounded-lg bg-teal-600 px-4 py-3 font-medium text-white transition hover:bg-teal-700 disabled:opacity-60"
-          >
-            {submitting ? "กำลังเข้าสู่ระบบ..." : "เข้าสู่ระบบ"}
-          </button>
-        </form>
-      </section>
-    </main>
+        <button
+          type="submit"
+          disabled={submitting}
+          className="mt-2 w-full rounded-full gradient-primary py-3 text-sm font-semibold text-white shadow-[0_0_24px_rgba(45,212,191,0.55)] disabled:cursor-not-allowed disabled:opacity-60"
+        >
+          {submitting ? "กำลังเข้าสู่ระบบ..." : "Login to Console"}
+        </button>
+      </form>
+
+      <div className="mt-6 border-t border-slate-300/60 pt-4 text-right">
+        <Link to="/login" className="inline-flex items-center gap-1.5 text-sm font-medium text-slate-800 hover:text-brand hover:underline">
+          <ArrowLeft size={16} />
+          กลับสู่หน้าหลัก
+        </Link>
+        <p className="text-xs text-slate-500">User portal here</p>
+      </div>
+    </AuthShell>
   );
 };
 

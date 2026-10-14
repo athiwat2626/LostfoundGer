@@ -1,6 +1,12 @@
 import { useState } from "react";
 import axios from "axios";
-import { useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
+import AuthShell from "../component/AuthShell";
+import { API_URL } from "../component/itemUtils";
+
+const inputClass =
+  "w-full rounded-full border-2 border-brand/70 bg-white/90 px-4 py-2.5 text-sm text-slate-800 placeholder-slate-400 outline-none transition focus:border-brand focus:ring-4 focus:ring-brand/15";
+const labelClass = "mb-2 block text-sm font-semibold text-slate-800";
 
 const SignUp = () => {
   const navigate = useNavigate();
@@ -22,7 +28,7 @@ const SignUp = () => {
     setIsSubmitting(true);
 
     try {
-      await axios.post("http://localhost:3000/api/register", formData);
+      await axios.post(`${API_URL}/api/register`, formData);
       navigate("/login", { state: { message: "สมัครสมาชิกสำเร็จ กรุณาเข้าสู่ระบบด้วยอีเมลของคุณ" } });
     } catch (error) {
       setMessage(error.response?.data?.message || "ไม่สามารถสมัครสมาชิกได้ กรุณาลองใหม่");
@@ -32,29 +38,75 @@ const SignUp = () => {
   };
 
   return (
-    <main className="grid min-h-screen place-items-center bg-[#f7f3ea] bg-dot-pattern p-6">
-      <section className="w-full max-w-sm rounded-2xl bg-white p-8 shadow-lg">
-        <h1 className="mb-2 text-2xl font-bold text-slate-800">สมัครสมาชิก</h1>
-        <p className="mb-5 text-slate-500">กรอกข้อมูลเพื่อสร้างบัญชี FOUND&LOST</p>
+    <AuthShell>
+      <h1 className="text-2xl font-bold text-slate-900">สมัครสมาชิก</h1>
+      <p className="mt-1 text-sm text-slate-700">กรอกข้อมูลเพื่อสร้างบัญชี FOUND&amp;LOST</p>
 
-        <form onSubmit={handleSubmit} className="space-y-3">
-          <input className="w-full rounded-lg border border-slate-300 px-3 py-3 outline-none focus:border-emerald-600" name="first_name" placeholder="ชื่อ" value={formData.first_name} onChange={handleChange} required maxLength={100} />
-          <input className="w-full rounded-lg border border-slate-300 px-3 py-3 outline-none focus:border-emerald-600" name="last_name" placeholder="นามสกุล" value={formData.last_name} onChange={handleChange} required maxLength={100} />
-          <input className="w-full rounded-lg border border-slate-300 px-3 py-3 outline-none focus:border-emerald-600" type="email" name="email" placeholder="อีเมล" value={formData.email} onChange={handleChange} required />
-          <button type="submit" disabled={isSubmitting} className="w-full rounded-lg bg-emerald-600 px-4 py-3 font-medium text-white transition hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-60">
-            {isSubmitting ? "กำลังสมัครสมาชิก..." : "สมัครสมาชิก"}
-          </button>
-        </form>
+      <form onSubmit={handleSubmit} className="mt-6 space-y-4">
+        <div className="grid gap-4 sm:grid-cols-2">
+          <div>
+            <label htmlFor="signup-first-name" className={labelClass}>ชื่อ</label>
+            <input
+              id="signup-first-name"
+              name="first_name"
+              placeholder="ชื่อ"
+              value={formData.first_name}
+              onChange={handleChange}
+              required
+              maxLength={100}
+              className={inputClass}
+            />
+          </div>
+          <div>
+            <label htmlFor="signup-last-name" className={labelClass}>นามสกุล</label>
+            <input
+              id="signup-last-name"
+              name="last_name"
+              placeholder="นามสกุล"
+              value={formData.last_name}
+              onChange={handleChange}
+              required
+              maxLength={100}
+              className={inputClass}
+            />
+          </div>
+        </div>
+        <div>
+          <label htmlFor="signup-email" className={labelClass}>อีเมล</label>
+          <input
+            id="signup-email"
+            type="email"
+            name="email"
+            placeholder="อีเมล"
+            value={formData.email}
+            onChange={handleChange}
+            required
+            className={inputClass}
+          />
+        </div>
 
-        {message && <p className="mt-4 text-center text-sm text-red-600">{message}</p>}
-        <p className="mt-5 text-center text-sm text-slate-500">
-          มีบัญชีแล้ว?{" "}
-          <button type="button" onClick={() => navigate("/login")} className="font-medium text-emerald-600 hover:underline">
-            เข้าสู่ระบบ
-          </button>
+        <button
+          type="submit"
+          disabled={isSubmitting}
+          className="w-full rounded-full gradient-primary py-3 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-60"
+        >
+          {isSubmitting ? "กำลังสมัครสมาชิก..." : "สมัครสมาชิก"}
+        </button>
+      </form>
+
+      {message && (
+        <p role="alert" className="mt-5 rounded-xl bg-red-50 px-3 py-2 text-center text-sm text-red-600">
+          {message}
         </p>
-      </section>
-    </main>
+      )}
+
+      <p className="mt-8 text-center text-sm text-slate-700">
+        มีบัญชีแล้ว?{" "}
+        <Link to="/login" className="font-semibold text-brand hover:underline">
+          เข้าสู่ระบบ
+        </Link>
+      </p>
+    </AuthShell>
   );
 };
 

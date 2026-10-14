@@ -1,6 +1,7 @@
 const db = require("../db");
 const { validateItem } = require("../validation");
 const { sendLineNotification } = require("../services/lineNotification");
+const { notifyNewItemMatches } = require("../services/matchNotifier");
 
 const createFoundItems = async (req, res) => {
   const validation = validateItem(req.body, "found_date", "found_location");
@@ -18,7 +19,9 @@ const createFoundItems = async (req, res) => {
     deposit_location,
   } = validation.value;
   
-  const student_id = req.body.student_id?.trim() || null;
+  // ผู้ใช้: ใช้รหัสจาก token เสมอ / แอดมิน: ระบุเจ้าของเองหรือเว้นว่างได้
+  const student_id =
+    req.auth?.role === "user" ? req.auth.student_id : req.body.student_id?.trim() || null;
   const image_url = req.file ? `/assets/foundUploads/${req.file.filename}` : null;
 
   try {
@@ -45,8 +48,21 @@ const createFoundItems = async (req, res) => {
       console.error("LINE notification failed:", notificationError.message);
     });
 
+    notifyNewItemMatches("found", {
+      item_id: result.rows[0].item_id,
+      item_name,
+      category,
+      item_color,
+      date: found_date,
+      location: found_location,
+      student_id,
+    });
+
     res.status(201).json({ item_id: result.rows[0].item_id });
   } catch (error) {
+    if (error.code === "23503") {
+      return res.status(400).json({ error: "ไม่พบรหัสนิสิตเจ้าของรายการนี้ในระบบ" });
+    }
     console.error("Error inserting found item:", error);
     res.status(500).json({ error: "Internal server error" });
   }

@@ -1,13 +1,7 @@
 import { useEffect, useState } from "react";
 import { Clock } from "lucide-react";
+import { ACTION_LABEL } from "../labels";
 import adminApi from "../api/adminApi";
-
-const ACTION_LABEL = {
-  dismissed: "ยกเลิกรายงาน",
-  warning: "ออกคำเตือน",
-  suspend: "ระงับบัญชี",
-  ban: "แบนถาวร",
-};
 
 const ProfileCard = () => {
   const [email, setEmail] = useState(localStorage.getItem("adminEmail") || "");
@@ -57,12 +51,12 @@ const ProfileCard = () => {
             onChange={(e) => setDisplayName(e.target.value)}
             required
             maxLength={100}
-            className="w-full rounded-lg border border-slate-300 px-3 py-2.5 text-sm outline-none focus:border-teal-500"
+            className="w-full rounded-lg border border-slate-300 px-3 py-2.5 text-sm outline-none focus:border-brand"
           />
         </div>
 
         {message && (
-          <p className="rounded-lg bg-emerald-50 border border-emerald-200 px-3 py-2 text-sm text-emerald-600">
+          <p className="rounded-lg bg-brand-50 border border-brand-soft px-3 py-2 text-sm text-brand">
             {message}
           </p>
         )}
@@ -73,7 +67,7 @@ const ProfileCard = () => {
         <button
           type="submit"
           disabled={submitting}
-          className="w-full rounded-lg bg-teal-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-teal-700 disabled:opacity-60"
+          className="w-full rounded-lg gradient-primary px-4 py-2.5 text-sm font-medium text-white disabled:opacity-60"
         >
           {submitting ? "กำลังบันทึก..." : "บันทึกชื่อที่แสดง"}
         </button>
@@ -119,7 +113,7 @@ const PasswordCard = () => {
           value={currentPassword}
           onChange={(e) => setCurrentPassword(e.target.value)}
           required
-          className="w-full rounded-lg border border-slate-300 px-3 py-2.5 text-sm outline-none focus:border-teal-500"
+          className="w-full rounded-lg border border-slate-300 px-3 py-2.5 text-sm outline-none focus:border-brand"
         />
         <input
           type="password"
@@ -128,11 +122,11 @@ const PasswordCard = () => {
           onChange={(e) => setNewPassword(e.target.value)}
           required
           minLength={8}
-          className="w-full rounded-lg border border-slate-300 px-3 py-2.5 text-sm outline-none focus:border-teal-500"
+          className="w-full rounded-lg border border-slate-300 px-3 py-2.5 text-sm outline-none focus:border-brand"
         />
 
         {message && (
-          <p className="rounded-lg bg-emerald-50 border border-emerald-200 px-3 py-2 text-sm text-emerald-600">
+          <p className="rounded-lg bg-brand-50 border border-brand-soft px-3 py-2 text-sm text-brand">
             {message}
           </p>
         )}
@@ -143,7 +137,7 @@ const PasswordCard = () => {
         <button
           type="submit"
           disabled={submitting}
-          className="w-full rounded-lg bg-teal-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-teal-700 disabled:opacity-60"
+          className="w-full rounded-lg gradient-primary px-4 py-2.5 text-sm font-medium text-white disabled:opacity-60"
         >
           {submitting ? "กำลังบันทึก..." : "บันทึกรหัสผ่านใหม่"}
         </button>
@@ -183,7 +177,7 @@ const ActivityCard = () => {
       <div className="space-y-3">
         {activity.map((a) => (
           <div key={a.report_id} className="flex items-start gap-3 border-b border-slate-50 pb-3 last:border-0 last:pb-0">
-            <div className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-teal-50 text-teal-600">
+            <div className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-brand-50 text-brand">
               <Clock size={14} />
             </div>
             <div className="min-w-0 flex-1">
@@ -206,10 +200,10 @@ const ActivityCard = () => {
 const Settings = () => {
   return (
     <div className="max-w-4xl">
-      <h1 className="text-xl font-bold text-slate-800 mb-1">Settings</h1>
+      <h1 className="text-xl font-bold text-slate-900 mb-1 sm:text-2xl">ตั้งค่า</h1>
       <p className="text-sm text-slate-500 mb-6">ข้อมูลบัญชีแอดมินและกิจกรรมล่าสุด</p>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-5">
         <div className="space-y-5">
           <ProfileCard />
           <PasswordCard />

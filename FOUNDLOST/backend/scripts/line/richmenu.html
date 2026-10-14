@@ -1,0 +1,56 @@
+<!doctype html>
+<!-- แม่แบบภาพ Rich Menu 2500×1686 px — แปลงเป็น PNG ด้วย: npm run line:richmenu:image
+     ตำแหน่ง/ลำดับช่องต้องตรงกับ MENU_ITEMS ใน services/line/richMenu.js -->
+<html lang="th">
+<head>
+<meta charset="utf-8">
+<style>
+  @font-face { font-family: "Sarabun"; font-weight: 400; src: url("../../assets/fonts/Sarabun-Regular.ttf"); }
+  @font-face { font-family: "Sarabun"; font-weight: 700; src: url("../../assets/fonts/Sarabun-Bold.ttf"); }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { width: 2500px; height: 1686px; overflow: hidden; }
+  body {
+    font-family: "Sarabun", sans-serif;
+    background: linear-gradient(135deg, #00514d 0%, #006664 45%, #0b8a7f 100%);
+    display: grid;
+    /* เส้นแบ่งตรงกับ bounds ของแต่ละช่อง: คอลัมน์ 833/833/834, แถว 843/843 */
+    grid-template-columns: 833px 833px 834px;
+    grid-template-rows: 843px 843px;
+  }
+  .cell { padding: 22px; }
+  .card {
+    height: 100%;
+    border-radius: 56px;
+    background: #ffffff;
+    box-shadow: 0 14px 0 rgba(0, 0, 0, 0.12);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 34px;
+  }
+  .icon {
+    width: 330px; height: 330px; border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-family: "Segoe UI Emoji", "Noto Color Emoji", "Apple Color Emoji", sans-serif;
+    font-size: 190px; line-height: 1;
+  }
+  .label { font-size: 110px; font-weight: 700; color: #0f172a; line-height: 1.05; }
+  .hint { font-size: 54px; font-weight: 400; color: #64748b; line-height: 1; margin-top: -18px; }
+  .lost .icon { background: #ffedd5; }
+  .search .icon { background: #e0f2fe; }
+  .mine .icon { background: #ede9fe; }
+  .found .icon { background: #dcfce7; }
+  .bell .icon { background: #fef9c3; }
+  .account .icon { background: #ccfbf1; }
+</style>
+</head>
+<body>
+  <div class="cell lost"><div class="card"><div class="icon">📢</div><div class="label">แจ้งของหาย</div><div class="hint">Report lost item</div></div></div>
+  <div class="cell search"><div class="card"><div class="icon">🔎</div><div class="label">ค้นหาของ</div><div class="hint">Search items</div></div></div>
+  <div class="cell mine"><div class="card"><div class="icon">📦</div><div class="label">รายการของฉัน</div><div class="hint">My posts</div></div></div>
+  <div class="cell found"><div class="card"><div class="icon">📍</div><div class="label">แจ้งพบของ</div><div class="hint">Report found item</div></div></div>
+  <div class="cell bell"><div class="card"><div class="icon">🔔</div><div class="label">การแจ้งเตือน</div><div class="hint">Notifications</div></div></div>
+  <div class="cell account"><div class="card"><div class="icon">👤</div><div class="label">บัญชีของฉัน</div><div class="hint">My account &amp; LINE</div></div></div>
+</body>
+</html>

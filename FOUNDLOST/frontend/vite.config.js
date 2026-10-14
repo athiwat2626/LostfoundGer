@@ -6,6 +6,8 @@ import tailwindcss from "@tailwindcss/vite";
 export default defineConfig({
   plugins: [react(), tailwindcss()],
   server: {
+    // เปิดผ่าน Cloudflare Tunnel ได้ (ทดสอบ LINE บนมือถือ)
+    allowedHosts: [".trycloudflare.com"],
     watch: {
       ignored: ["**/backend/**"],
     },

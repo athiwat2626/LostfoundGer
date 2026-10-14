@@ -1,118 +1,131 @@
-import React from 'react';
-import { Link } from 'react-router-dom';
-import logo from '../assets/images/logo.png';
+import { useEffect, useMemo, useState } from "react";
+import { Link, useNavigate } from "react-router-dom";
+import { SlidersHorizontal } from "lucide-react";
+import UserLayout from "../component/UserLayout";
+import {
+  fetchItems,
+  matchesFilter,
+  matchesQuery,
+  paginate,
+  reportState,
+} from "../component/itemUtils";
+import { QuickFilters, ItemGrid, Pagination, ItemDetailModal } from "../component/itemUi";
+import TypeTabs from "../component/TypeTabs";
+import QuickReportButtons from "../component/QuickReportButtons";
 
-const PillButton = ({ children, tone }) => {
-  const tones = {
-    red: "bg-gradient-to-r from-red-600 to-rose-600 text-white",
-    emerald: "bg-gradient-to-r from-emerald-600 to-teal-600 text-white",
-    white: "bg-white text-red-600",
-    whiteEmerald: "bg-white text-emerald-700",
-  };
+// ─── แบนเนอร์ต้อนรับ (เปลี่ยนสไลด์อัตโนมัติ) ─────────────────────────────────────
+const SLIDES = [
+  { title: "ยินดีต้อนรับสู่ระบบแจ้งของพบ-ของหาย", subtitle: "Welcome to the Lost & Found System" },
+  { title: "ทำของหาย? แจ้งได้ทันที", subtitle: "Report a lost item and let the community help you find it" },
+  { title: "เจอของ? ช่วยส่งคืนเจ้าของ", subtitle: "Report a found item and earn a certificate of appreciation" },
+];
+
+const WelcomeBanner = () => {
+  const [index, setIndex] = useState(0);
+
+  useEffect(() => {
+    const timer = setInterval(() => setIndex((i) => (i + 1) % SLIDES.length), 5000);
+    return () => clearInterval(timer);
+  }, []);
+
+  const slide = SLIDES[index];
+
   return (
-    <span className={`inline-flex items-center gap-2 rounded-full px-5 py-2.5 text-sm font-semibold shadow-sm ${tones[tone]}`}>
-      {children}
-      <span className="flex h-5 w-5 items-center justify-center rounded-full bg-black/10 text-xs">+</span>
-    </span>
+    <section className="relative mt-5 overflow-hidden rounded-3xl gradient-hero px-5 py-6 text-center text-white shadow-md sm:mt-6 sm:rounded-2xl sm:px-6 sm:py-10">
+      <div className="absolute -right-10 -top-10 h-40 w-40 rounded-full bg-white/10" />
+      <div className="absolute -bottom-12 -left-8 h-36 w-36 rounded-full bg-white/10" />
+      <h2 className="relative text-lg font-bold sm:text-3xl">{slide.title}</h2>
+      <p className="relative mt-1.5 text-xs text-white/90 sm:mt-2 sm:text-base">{slide.subtitle}</p>
+      <div className="relative mt-4 flex justify-center gap-1.5 sm:mt-6">
+        {SLIDES.map((s, i) => (
+          <button
+            key={s.title}
+            type="button"
+            onClick={() => setIndex(i)}
+            aria-label={`สไลด์ที่ ${i + 1}`}
+            className={`h-2 rounded-full transition-all ${i === index ? "w-6 bg-white" : "w-2 bg-white/50"}`}
+          />
+        ))}
+      </div>
+    </section>
   );
 };
 
+// ─── หน้าหลัก ────────────────────────────────────────────────────────────────
 const Home = () => {
+  const navigate = useNavigate();
+  const [items, setItems] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [quickFilter, setQuickFilter] = useState("all");
+  const [typeTab, setTypeTab] = useState("all");
+  const [query, setQuery] = useState("");
+  const [page, setPage] = useState(1);
+  const [selected, setSelected] = useState(null);
+
+  useEffect(() => {
+    // รวมของพบและของหายไว้ด้วยกัน เรียงจากใหม่ไปเก่า (ป้ายบนการ์ดบอกประเภท)
+    Promise.all([fetchItems("found"), fetchItems("lost")]).then(([found, lost]) => {
+      setItems(
+        [...found, ...lost].sort((a, b) => new Date(b.created_at || b.date) - new Date(a.created_at || a.date))
+      );
+      setLoading(false);
+    });
+  }, []);
+
+  const filtered = useMemo(
+    () =>
+      items.filter(
+        (item) => (typeTab === "all" || item.type === typeTab) && matchesFilter(item, quickFilter) && matchesQuery(item, query)
+      ),
+    [items, typeTab, quickFilter, query]
+  );
+  const { totalPages, currentPage, pageItems } = paginate(filtered, page);
+
+  // เปลี่ยนตัวกรองแล้วกลับไปหน้า 1
+  const updateFilter = (setter) => (value) => {
+    setter(value);
+    setPage(1);
+  };
+
   return (
-    <div className="min-h-screen bg-[#f7f3ea] bg-dot-pattern">
+    <UserLayout
+      search={{ value: query, onChange: updateFilter(setQuery), placeholder: "ค้นหากุญแจ โทรศัพท์ กระเป๋า หรืออื่นๆ" }}
+    >
+      <ItemDetailModal
+        item={selected}
+        onClose={() => setSelected(null)}
+        onReport={(item) => navigate("/report", { state: reportState(item) })}
+      />
 
-      {/* Hero Section */}
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
-        <div className="text-center mb-14">
-          <img src={logo} alt="KU Lost&Found" className="mx-auto mb-4 h-20 w-auto object-contain" />
-          <p className="text-lg text-slate-600">
-            ระบบค้นหาและรายงานของหายภายในมหาวิทยาลัยเกษตรศาสตร์
-          </p>
-        </div>
+      <WelcomeBanner />
 
-        {/* Main Cards */}
-        <div className="grid md:grid-cols-2 gap-6 mb-8">
-          {/* Lost Items Card */}
-          <Link to="/lostPage">
-            <div className="bg-white rounded-3xl shadow-sm p-8 hover:shadow-md transition h-full border border-slate-100">
-              <div className="text-5xl mb-4">📋</div>
-              <h2 className="text-2xl font-bold text-slate-900 mb-3">ของหาย</h2>
-              <p className="text-slate-500 mb-6">
-                ดูรายการของที่มีคนรายงานว่ากำลังหาของ อาจจะเป็นของของคุณก็ได้
-              </p>
-              <PillButton tone="red">ดูรายการของหาย</PillButton>
-            </div>
-          </Link>
+      {/* มือถือ: ปุ่มแจ้งของหาย / แจ้งพบของ (จอใหญ่ใช้ปุ่ม "แจ้งสิ่งของ" ในแถบเมนูซ้าย) */}
+      <QuickReportButtons className="mt-4 md:hidden" />
 
-          {/* Found Items Card */}
-          <Link to="/foundPage">
-            <div className="bg-white rounded-3xl shadow-sm p-8 hover:shadow-md transition h-full border border-slate-100">
-              <div className="text-5xl mb-4">✨</div>
-              <h2 className="text-2xl font-bold text-slate-900 mb-3">พบของ</h2>
-              <p className="text-slate-500 mb-6">
-                ดูรายการของที่ผู้อื่นพบ หากเป็นของของคุณ สามารถติดต่อขอคืนได้
-              </p>
-              <PillButton tone="emerald">ดูรายการพบของ</PillButton>
-            </div>
-          </Link>
-        </div>
-
-        {/* Action Buttons */}
-        <div className="grid md:grid-cols-2 gap-6">
-          {/* Report Lost Item */}
-          <Link to="/lostItem">
-            <div className="bg-gradient-to-br from-red-600 to-rose-700 rounded-3xl shadow-md p-8 hover:shadow-lg transition text-white h-full">
-              <div className="text-5xl mb-4">🎈</div>
-              <h2 className="text-2xl font-bold mb-3">รายงานของหาย</h2>
-              <p className="mb-6 text-red-50">
-                คุณสูญเสียของไป? รายงานของหายของคุณเพื่อให้ผู้อื่นช่วยค้นหา
-              </p>
-              <PillButton tone="white">สร้างรายงานของหาย</PillButton>
-            </div>
-          </Link>
-
-          {/* Report Found Item */}
-          <Link to="/foundItem">
-            <div className="bg-gradient-to-br from-orange-500 to-amber-600 rounded-3xl shadow-md p-8 hover:shadow-lg transition text-white h-full">
-              <div className="text-5xl mb-4">🎁</div>
-              <h2 className="text-2xl font-bold mb-3">รายงานของพบ</h2>
-              <p className="mb-6 text-orange-50">
-                คุณพบของที่ไม่ใช่ของคุณ? รายงานเพื่อช่วยเจ้าของกลับคืน
-              </p>
-              <PillButton tone="white">สร้างรายงานของพบ</PillButton>
-            </div>
-          </Link>
-        </div>
-
-        {/* Features */}
-        <div className="mt-14 bg-white rounded-3xl shadow-sm border border-slate-100 p-8">
-          <h2 className="text-2xl font-bold text-slate-900 mb-8 text-center">ฟีเจอร์หลัก</h2>
-          <div className="grid md:grid-cols-3 gap-8">
-            <div className="text-center">
-              <div className="text-4xl mb-4">📸</div>
-              <h3 className="font-bold text-lg mb-2 text-slate-800">อัปโหลดรูปภาพ</h3>
-              <p className="text-slate-500">
-                อัปโหลดรูปภาพของชัดเจน เพื่อให้ผู้อื่นช่วยค้นหาได้อย่างแม่นยำ
-              </p>
-            </div>
-            <div className="text-center">
-              <div className="text-4xl mb-4">📍</div>
-              <h3 className="font-bold text-lg mb-2 text-slate-800">ระบุสถานที่</h3>
-              <p className="text-slate-500">
-                ระบุสถานที่ที่พบหรือสูญเสีย ผ่านแผนที่อินเตอร์แอกทีฟ
-              </p>
-            </div>
-            <div className="text-center">
-              <div className="text-4xl mb-4">💬</div>
-              <h3 className="font-bold text-lg mb-2 text-slate-800">ติดต่อสื่อสาร</h3>
-              <p className="text-slate-500">
-                ติดต่อเจ้าของของโดยตรง เพื่อหารือการคืนของ
-              </p>
-            </div>
-          </div>
-        </div>
+      <div className="mt-7 flex items-end justify-between gap-3 sm:mt-8">
+        <h1 className="text-xl font-bold text-slate-900 sm:text-2xl">ค้นพบรายการต่างๆ</h1>
+        <Link to="/search" className="flex shrink-0 items-center gap-1 text-xs font-semibold text-brand hover:underline">
+          <SlidersHorizontal size={14} /> ค้นหาขั้นสูง
+        </Link>
       </div>
-    </div>
+
+      <TypeTabs value={typeTab} onChange={updateFilter(setTypeTab)} items={items} className="mt-4" />
+
+      <div className="mt-4">
+        <QuickFilters value={quickFilter} onChange={updateFilter(setQuickFilter)} />
+      </div>
+
+      <section className="mt-6">
+        <ItemGrid
+          loading={loading}
+          items={pageItems}
+          emptyText={query || quickFilter !== "all" || typeTab !== "all" ? "ไม่พบรายการที่ตรงกับการค้นหา" : "ยังไม่มีรายการ"}
+          onSelect={setSelected}
+        />
+      </section>
+
+      <Pagination page={currentPage} totalPages={totalPages} onChange={setPage} />
+    </UserLayout>
   );
 };
 

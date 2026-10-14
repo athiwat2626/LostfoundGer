@@ -2,6 +2,7 @@
 const express = require("express");
 const cors = require("cors");
 const path = require("path");
+const crypto = require("crypto");
 const app = express();
 const port = Number(process.env.PORT || 3000);
 const db = require("./db");
@@ -17,12 +18,21 @@ const reportRoute = require("./routes/reportRoute");
 const adminAuthRoute = require("./routes/adminAuthRoute");
 const adminRoute = require("./routes/adminRoute");
 const adminAuth = require("./middleware/adminAuth");
+const { userAuth, signUserToken } = require("./middleware/userAuth");
+const profileRoute = require("./routes/profileRoute");
+const claimRoute = require("./routes/claimRoute");
+const myItemRoute = require("./routes/myItemRoute");
+const inboxRoute = require("./routes/inboxRoute");
 const bcrypt = require("bcryptjs");
 const { sendLineNotification } = require("./services/lineNotification");
+const line = require("./services/line");
+const lineRoute = require("./routes/lineRoute");
 
 
 // ตั้งค่าการอ่าน request, การเรียกใช้ข้ามโดเมน และการเข้าถึงไฟล์อัปโหลด
 app.use(cors());
+// LINE webhook ต้องได้ body ดิบเพื่อตรวจ X-Line-Signature จึงต้องลงทะเบียนก่อน express.json()
+app.post("/api/line/webhook", express.raw({ type: "*/*", limit: "1mb" }), line.webhook.handler);
 app.use(express.json()); // Middleware สำหรับอ่านข้อมูล JSON
 app.use(express.urlencoded({ extended: true }));
 app.use("/assets/uploads/", express.static(path.join(__dirname, "assets")));
@@ -33,8 +43,9 @@ app.get("/", (req, res) => {
 });
 
 app.post("/api/notifications/line", async (req, res) => {
+  // ใช้ได้เฉพาะเมื่อตั้ง NOTIFY_API_KEY และส่ง header x-api-key ตรงกัน (ไม่ตั้งค่า = ปิดใช้งาน)
   const apiKey = process.env.NOTIFY_API_KEY;
-  if (apiKey && req.headers["x-api-key"] !== apiKey) {
+  if (!apiKey || req.headers["x-api-key"] !== apiKey) {
     return res.status(401).json({ success: false, message: "Unauthorized" });
   }
 
@@ -93,16 +104,24 @@ app.post("/api/register", async (req, res) => {
 });
 
 // ลงทะเบียน route หลัก โดยคง path data* ไว้เป็น alias ให้ frontend เดิม
-app.use("/user", userRoute);
+// รายชื่อผู้ใช้ทั้งหมด: เฉพาะแอดมิน
+app.use("/user", adminAuth, userRoute);
 app.use("/foundItem", foundItemRoute);
 app.use("/lostItem", lostItemRoute);
 app.use("/datalost", lostItemRoute);
 app.use("/datafound", foundItemRoute);
 app.use("/assets", express.static("assets"));
-app.use("/api/returns", certificateRoute);
+// ยืนยันการคืนของ (เพิ่มยอดคืนของ + ส่งเกียรติบัตร): เฉพาะแอดมิน จนกว่าจะมีขั้นตอนรับคืนของฝั่งผู้ใช้
+app.use("/api/returns", adminAuth, certificateRoute);
 app.use("/report", reportRoute);
 app.use("/admin/auth", adminAuthRoute);
+app.use("/admin/line", adminAuth, lineRoute.adminRouter);
 app.use("/admin", adminAuth, adminRoute);
+app.use("/api/line", lineRoute.router);
+app.use("/api/me", profileRoute);
+app.use("/api/claims", claimRoute);
+app.use("/api/my-items", myItemRoute);
+app.use("/api/inbox", inboxRoute);
 
 // แปลงข้อผิดพลาดจากการอัปโหลดให้เป็นข้อความที่ client เข้าใจได้
 app.use((error, req, res, next) => {
@@ -125,6 +144,9 @@ const transporter = mailUser && mailPassword
     auth: { user: mailUser, pass: mailPassword },
   })
   : null;
+
+const MAX_OTP_ATTEMPTS = 5; // กรอก OTP ผิดได้ไม่เกินกี่ครั้งต่อรหัส
+const OTP_RESEND_SECONDS = 60; // ต้องรอกี่วินาทีก่อนขอรหัสใหม่
 
 // สร้าง OTP ใหม่ เก็บลง PostgreSQL และส่งไปทางอีเมล
 app.post("/api/send-otp", async (req, res) => {
@@ -178,6 +200,22 @@ app.post("/api/send-otp", async (req, res) => {
       });
     }
 
+    // ป้องกันการขอ OTP ถี่เกินไป
+    const recent = await db.query(
+      `SELECT CEIL(EXTRACT(EPOCH FROM (created_at + $2::interval - NOW())))::int AS wait
+       FROM otp_codes WHERE email = $1 AND created_at > NOW() - $2::interval
+       ORDER BY created_at DESC LIMIT 1`,
+      [normalizedEmail, `${OTP_RESEND_SECONDS} seconds`]
+    );
+    if (recent.rows.length > 0) {
+      const wait = Math.max(1, recent.rows[0].wait);
+      return res.status(429).json({
+        success: false,
+        message: `กรุณารอ ${wait} วินาทีก่อนขอรหัส OTP ใหม่`,
+        retry_after: wait
+      });
+    }
+
     // สร้าง OTP 6 หลัก และแทนที่ OTP เดิมของอีเมลนี้
     const otp = Math.floor(100000 + Math.random() * 900000).toString();
 
@@ -189,15 +227,32 @@ app.post("/api/send-otp", async (req, res) => {
     );
 
     // ส่ง OTP หลังจากบันทึกลงฐานข้อมูลพร้อมกำหนดอายุ 5 นาที
+    // อีเมลมีชื่อผู้ส่ง หัวเรื่องภาษาไทย และเนื้อหาแบบข้อความธรรมดาคู่กับ HTML
+    // (อีเมลที่มีแต่ตัวเลขใน HTML และหัวเรื่องสั้น ๆ มักถูก Gmail กรองเป็นสแปม)
     await transporter.sendMail({
-      from: mailUser,
+      from: { name: "FOUND&LOST มหาวิทยาลัยเกษตรศาสตร์", address: mailUser },
       to: normalizedEmail,
-      subject: "OTP Verification",
+      subject: `รหัสเข้าสู่ระบบ FOUND&LOST ของคุณคือ ${otp}`,
+      text: [
+        "สวัสดีครับ/ค่ะ",
+        "",
+        `รหัสสำหรับเข้าสู่ระบบ FOUND&LOST ของคุณคือ ${otp}`,
+        "รหัสนี้ใช้ได้ภายใน 5 นาที และใช้ได้ครั้งเดียว",
+        "",
+        "หากคุณไม่ได้ขอรหัสนี้ ไม่ต้องทำอะไร บัญชีของคุณยังปลอดภัย",
+        "",
+        "FOUND&LOST ระบบแจ้งของหาย-ของพบ มหาวิทยาลัยเกษตรศาสตร์",
+      ].join("\n"),
       html: `
-        <h2>FOUND&LOST</h2>
-        <p>Your OTP Code</p>
-        <h1>${otp}</h1>
-        <p>Valid for 5 minutes</p>
+        <div style="font-family:Tahoma,Arial,sans-serif;max-width:480px;margin:0 auto;color:#1e293b">
+          <h2 style="color:#006664;margin-bottom:4px">FOUND&amp;LOST</h2>
+          <p style="margin-top:0;color:#64748b">ระบบแจ้งของหาย-ของพบ มหาวิทยาลัยเกษตรศาสตร์</p>
+          <p>สวัสดีครับ/ค่ะ</p>
+          <p>รหัสสำหรับเข้าสู่ระบบของคุณคือ</p>
+          <p style="font-size:32px;font-weight:bold;letter-spacing:8px;color:#006664;margin:16px 0">${otp}</p>
+          <p>รหัสนี้ใช้ได้ภายใน 5 นาที และใช้ได้ครั้งเดียว</p>
+          <p style="color:#64748b;font-size:13px">หากคุณไม่ได้ขอรหัสนี้ ไม่ต้องทำอะไร บัญชีของคุณยังปลอดภัย</p>
+        </div>
       `
     });
 
@@ -229,18 +284,42 @@ app.post("/api/verify-otp", async (req, res) => {
       });
     }
     const normalizedEmail = email.trim().toLowerCase();
-    const result = await db.query(
-      `DELETE FROM otp_codes
-       WHERE email = $1 AND otp = $2 AND expires_at > NOW()
-       RETURNING otp_id`,
-      [normalizedEmail, otp]
+
+    // OTP ล่าสุดที่ยังไม่หมดอายุของอีเมลนี้
+    const current = await db.query(
+      `SELECT otp_id, otp FROM otp_codes
+       WHERE email = $1 AND expires_at > NOW()
+       ORDER BY created_at DESC LIMIT 1`,
+      [normalizedEmail]
     );
+    const record = current.rows[0];
+    const matches = Boolean(record) && record.otp.length === otp.length &&
+      crypto.timingSafeEqual(Buffer.from(record.otp), Buffer.from(otp));
+
+    if (record && !matches) {
+      const attempt = await db.query(
+        "UPDATE otp_codes SET attempts = attempts + 1 WHERE otp_id = $1 RETURNING attempts",
+        [record.otp_id]
+      );
+      if ((attempt.rows[0]?.attempts || 0) >= MAX_OTP_ATTEMPTS) {
+        await db.query("DELETE FROM otp_codes WHERE otp_id = $1", [record.otp_id]);
+        return res.status(429).json({
+          success: false,
+          message: `กรอก OTP ผิดเกิน ${MAX_OTP_ATTEMPTS} ครั้ง กรุณาขอรหัสใหม่`
+        });
+      }
+    }
+
+    // ลบ OTP ที่ใช้แล้ว (ถ้ามีคำขอพร้อมกัน จะมีเพียงคำขอเดียวที่ลบสำเร็จ)
+    const result = matches
+      ? await db.query("DELETE FROM otp_codes WHERE otp_id = $1 RETURNING otp_id", [record.otp_id])
+      : { rowCount: 0 };
 
     // PostgreSQL ตรวจสอบ expires_at ทำให้ OTP ที่หมดอายุไม่สามารถใช้งานได้
     if (result.rowCount === 1) {
       // ดึงข้อมูล student_id จากอีเมลเพื่อส่งกลับ
       const userResult = await db.query(
-        `SELECT student_id, is_banned, suspended_until FROM users WHERE email = $1`,
+        `SELECT student_id, email, is_banned, suspended_until FROM users WHERE email = $1`,
         [normalizedEmail]
       );
 
@@ -265,6 +344,8 @@ app.post("/api/verify-otp", async (req, res) => {
       return res.status(200).json({
         success: true,
         message: "OTP Verified Successfully",
+        // token สำหรับเรียก API ที่ต้องยืนยันตัวตน เช่น แก้ไขโปรไฟล์ (/api/me)
+        token: account ? signUserToken(account) : null,
         student_id: student_id
       });
     }
@@ -288,13 +369,16 @@ app.post("/api/verify-otp", async (req, res) => {
 });
 
 // ส่งข้อมูลโปรไฟล์ที่เปิดเผยได้ของผู้ใช้จากอีเมล
-app.get("/api/users/:email", async (req, res) => {
+app.get("/api/users/:email", userAuth, async (req, res) => {
   try {
     const { email } = req.params;
     if (!validateEmail(email)) {
       return res.status(400).json({ success: false, message: "A valid email is required" });
     }
     const normalizedEmail = email.trim().toLowerCase();
+    if (normalizedEmail !== String(req.user.email || "").toLowerCase()) {
+      return res.status(403).json({ success: false, message: "Forbidden" });
+    }
 
     const result = await db.query(
       `SELECT student_id, first_name, last_name, email, profile_image
@@ -406,12 +490,17 @@ const startServer = async () => {
         created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
       )
     `);
+    await db.query("ALTER TABLE otp_codes ADD COLUMN IF NOT EXISTS attempts INTEGER NOT NULL DEFAULT 0");
     await db.query(
       "ALTER TABLE users ADD COLUMN IF NOT EXISTS profile_image TEXT"
     );
     await db.query(
   "ALTER TABLE users ADD COLUMN IF NOT EXISTS successful_returns INTEGER NOT NULL DEFAULT 0"
     );
+    // ช่องทางติดต่อของผู้ใช้ (หน้าตั้งค่า)
+    await db.query("ALTER TABLE users ADD COLUMN IF NOT EXISTS phone VARCHAR(20)");
+    await db.query("ALTER TABLE users ADD COLUMN IF NOT EXISTS contact_email VARCHAR(255)");
+    await db.query("ALTER TABLE users ADD COLUMN IF NOT EXISTS preferred_contact VARCHAR(10) NOT NULL DEFAULT 'email'");
     await db.query(
       "ALTER TABLE lost_items ADD COLUMN IF NOT EXISTS lost_location VARCHAR(255)"
     );
@@ -457,6 +546,11 @@ const startServer = async () => {
     await db.query("ALTER TABLE reports ADD COLUMN IF NOT EXISTS action_taken VARCHAR(30)");
     await db.query("CREATE INDEX IF NOT EXISTS idx_reports_status ON reports(status)");
 
+    // การรับคืนของ, การติดต่อเจ้าของโพสต์ และการแจ้งเตือน
+    await db.query(require("fs").readFileSync(path.join(__dirname, "sql", "features.sql"), "utf8"));
+    // ระบบ LINE Bot: เชื่อมบัญชี, ประวัติการแจ้งเตือน, กันแจ้งเตือนซ้ำ
+    await db.query(require("fs").readFileSync(path.join(__dirname, "sql", "line.sql"), "utf8"));
+
     // สร้างบัญชีแอดมินเริ่มต้นครั้งแรกที่ยังไม่มี (ไม่เขียนทับรหัสผ่านที่เปลี่ยนภายหลัง)
     if (process.env.ADMIN_SEED_EMAIL && process.env.ADMIN_SEED_PASSWORD) {
       const seedEmail = process.env.ADMIN_SEED_EMAIL.trim().toLowerCase();
@@ -479,6 +573,7 @@ const startServer = async () => {
     app.listen(port, () => {
       console.log(`Server is running on http://localhost:${port}`);
     });
+    line.startLineBackgroundJobs();
   } catch (error) {
     console.error("Database connection error:", error.message);
     process.exit(1);

@@ -7,9 +7,11 @@
   "type": "commonjs",
   "main": "db.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
+    "test": "node --test --test-reporter=spec \"test/**/*.test.js\"",
     "start": "node --env-file-if-exists=.env server.js",
-    "dev": "nodemon --legacy-watch --exec \"node --env-file-if-exists=.env\" server.js"
+    "dev": "nodemon --legacy-watch --exec \"node --env-file-if-exists=.env\" server.js",
+    "line:richmenu": "node --env-file-if-exists=.env scripts/line/deployRichMenu.js",
+    "line:richmenu:image": "node scripts/line/renderRichMenuImage.js"
   },
   "dependencies": {
     "bcryptjs": "^2.4.3",
