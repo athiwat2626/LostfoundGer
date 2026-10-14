@@ -1,0 +1,5 @@
+# root .gitignore ของ repo ละเว้น package.json ทุกระดับ — ยกเว้นให้โฟลเดอร์ testcase
+!package.json
+!package-lock.json
+node_modules/
+coverage/
