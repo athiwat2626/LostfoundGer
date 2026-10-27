@@ -42,6 +42,52 @@ const similarity = (a, b) => {
   return x.includes(y) || y.includes(x) ? Math.max(dice, 0.75) : dice;
 };
 
+// คำที่มีความหมายเดียวกัน — ชื่อสองโพสต์ที่มีคำจากกลุ่มเดียวกันถือว่าชื่อคล้ายกัน
+// (เช่น "จอยเล่นเกม" กับ "คอนโทรลเลอร์ PS5") ตรวจแบบ "มีคำนี้อยู่ในชื่อ" หลังตัดช่องว่าง/ตัวพิมพ์ใหญ่
+// ไม่ใส่คำกว้าง ๆ อย่าง "กระเป๋า" หรือคำสั้นที่ไปซ้อนในคำอื่นได้ง่าย เพื่อไม่ให้จับคู่มั่ว
+const SYNONYM_GROUPS = [
+  ["กระเป๋าสตางค์", "กระเป๋าตัง", "กระเป๋าเงิน", "wallet"],
+  ["โทรศัพท์", "มือถือ", "สมาร์ทโฟน", "smartphone", "iphone", "ไอโฟน", "android", "แอนดรอยด์"],
+  ["หูฟัง", "earphone", "headphone", "headset", "airpods", "แอร์พอด", "เอียร์บัด", "earbuds", "earbud"],
+  ["จอยเกม", "จอย", "คอนโทรลเลอร์", "controller", "joystick", "joy-con", "dualsense", "ดูอัลเซนส์"],
+  ["กุญแจ", "ลูกกุญแจ", "พวงกุญแจ", "keychain"],
+  ["บัตรนิสิต", "บัตรนักศึกษา", "บัตรประจำตัวนิสิต", "studentcard", "studentid"],
+  ["บัตรประชาชน", "บัตรปชช", "idcard"],
+  ["โน้ตบุ๊ก", "โน๊ตบุ๊ค", "โน้ตบุ๊ค", "โน๊ตบุ๊ก", "แล็ปท็อป", "แลปท็อป", "laptop", "macbook", "แมคบุ๊ก", "แมคบุ๊ค"],
+  ["แท็บเล็ต", "แทบเล็ต", "แท็ปเล็ต", "tablet", "ipad", "ไอแพด"],
+  ["นาฬิกา", "smartwatch", "applewatch", "สมาร์ทวอทช์", "watch"],
+  ["แว่นตา", "แว่น", "แว่นกันแดด", "glasses", "sunglasses"],
+  ["ร่ม", "umbrella"],
+  ["กระบอกน้ำ", "ขวดน้ำ", "แก้วน้ำ", "แก้วเก็บความเย็น", "tumbler", "bottle"],
+  ["ที่ชาร์จ", "สายชาร์จ", "หัวชาร์จ", "charger", "อะแดปเตอร์", "adapter"],
+  ["พาวเวอร์แบงค์", "พาวเวอร์แบงก์", "powerbank", "แบตสำรอง"],
+  ["เมาส์", "เม้าส์", "mouse"],
+  ["คีย์บอร์ด", "แป้นพิมพ์", "keyboard"],
+  ["กระเป๋าเป้", "เป้สะพายหลัง", "backpack"],
+  ["เสื้อแจ็คเก็ต", "แจ็คเก็ต", "แจ็กเก็ต", "jacket", "เสื้อกันหนาว", "hoodie", "ฮู้ด"],
+  ["แฟลชไดรฟ์", "แฟลชไดร์ฟ", "flashdrive", "thumbdrive", "ทัมไดรฟ์"],
+].map((group) => group.map(normalize));
+
+// กลุ่มคำที่พบในชื่อ (คืนเป็นชุดลำดับกลุ่ม)
+const synonymGroupsOf = (name) => {
+  const value = normalize(name);
+  const found = new Set();
+  if (!value) return found;
+  SYNONYM_GROUPS.forEach((group, index) => {
+    if (group.some((word) => value.includes(word))) found.add(index);
+  });
+  return found;
+};
+
+// ความคล้ายของชื่อ: ตัวอักษรใกล้กัน หรือมีคำความหมายเดียวกัน (ให้เท่ากับกรณีชื่อหนึ่งอยู่ในอีกชื่อ)
+const SYNONYM_SCORE = 0.75;
+const nameSimilarity = (a, b) => {
+  const score = similarity(a, b);
+  if (score >= SYNONYM_SCORE) return score;
+  const groupsB = synonymGroupsOf(b);
+  return [...synonymGroupsOf(a)].some((group) => groupsB.has(group)) ? SYNONYM_SCORE : score;
+};
+
 const daysBetween = (a, b) => Math.abs(new Date(a) - new Date(b)) / 86_400_000;
 
 // คะแนน 0–100 พร้อมเหตุผลสั้น ๆ ที่แสดงให้ผู้ใช้ดู
@@ -55,7 +101,7 @@ const scorePair = (item, candidate) => {
     reasons.push("หมวดเดียวกัน");
   }
 
-  const nameScore = similarity(item.item_name, candidate.item_name);
+  const nameScore = nameSimilarity(item.item_name, candidate.item_name);
   if (nameScore >= 0.45) {
     score += Math.round(nameScore * 45);
     reasons.push("ชื่อคล้ายกัน");
@@ -106,4 +152,4 @@ const findMatches = async (type, item, { limit = 5, minScore = DEFAULT_MIN_SCORE
     .slice(0, limit);
 };
 
-module.exports = { findMatches, similarity, scorePair, FIELDS };
+module.exports = { findMatches, similarity, nameSimilarity, scorePair, FIELDS };
