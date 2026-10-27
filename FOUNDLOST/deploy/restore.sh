@@ -30,7 +30,7 @@ fi
 read -r -p "จะเขียนทับฐานข้อมูลและรูปจริงด้วย $SRC — พิมพ์ RESTORE เพื่อยืนยัน: " answer
 [[ "$answer" == "RESTORE" ]] || { echo "ยกเลิก"; exit 1; }
 
-./deploy/backup.sh
+bash deploy/backup.sh
 "${COMPOSE[@]}" stop backend
 "${COMPOSE[@]}" exec -T db sh -c 'pg_restore -U "$POSTGRES_USER" -d "$POSTGRES_DB" --clean --if-exists --no-owner' < "$SRC/db.dump"
 if [[ -f "$SRC/uploads.tgz" ]]; then
