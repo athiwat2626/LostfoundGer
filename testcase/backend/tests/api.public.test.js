@@ -1,6 +1,7 @@
 // API ฝั่งผู้ใช้ทั่วไปใน server.js: health check, สมัครสมาชิก, OTP, โปรไฟล์, จัดอันดับ, แจ้งเตือน LINE
+const jwt = require("jsonwebtoken");
 const request = require("supertest");
-const { backendPath, loadApp, routeQueries, findQuery, pgError } = require("./helpers");
+const { backendPath, loadApp, routeQueries, findQuery, pgError, adminToken } = require("./helpers");
 
 jest.mock("../../../FOUNDLOST/backend/db", () => ({ query: jest.fn(), connect: jest.fn() }));
 jest.mock("../../../FOUNDLOST/backend/services/lineNotification", () => ({ sendLineNotification: jest.fn() }));
@@ -147,6 +148,18 @@ describe("OTP POST /api/send-otp", () => {
     expect(mockSendMail.mock.calls[0][0].html).toContain(otp);
   });
 
+  test("OTP-08 ขอ OTP ซ้ำภายใน 60 วินาที → 429 พร้อม retry_after และไม่ส่งรหัสใหม่", async () => {
+    routeQueries(db.query, [
+      [/FROM users WHERE email/, { rows: [activeUser] }],
+      [/AS wait FROM otp_codes/, { rows: [{ wait: 45 }] }],
+    ]);
+    const res = await request(app).post("/api/send-otp").send({ email: activeUser.email });
+    expect(res.status).toBe(429);
+    expect(res.body).toMatchObject({ success: false, retry_after: 45, message: "กรุณารอ 45 วินาทีก่อนขอรหัส OTP ใหม่" });
+    expect(findQuery(db.query, /INSERT INTO otp_codes/)).toBeUndefined();
+    expect(mockSendMail).not.toHaveBeenCalled();
+  });
+
   test("OTP-07 ส่งอีเมลล้มเหลว → 500", async () => {
     routeQueries(db.query, [[/FROM users WHERE email/, { rows: [activeUser] }]]);
     mockSendMail.mockRejectedValue(new Error("smtp down"));
@@ -157,7 +170,10 @@ describe("OTP POST /api/send-otp", () => {
 });
 
 describe("VOTP POST /api/verify-otp", () => {
-  const otpRow = [/DELETE FROM otp_codes WHERE email = \$1 AND otp = \$2/, { rows: [{ otp_id: 1 }], rowCount: 1 }];
+  // ขั้นตอนปัจจุบัน: ดึง OTP ล่าสุดที่ยังไม่หมดอายุ → เทียบแบบ timing-safe → ลบด้วย otp_id
+  const otpRow = [/SELECT otp_id, otp FROM otp_codes/, { rows: [{ otp_id: 1, otp: "123456" }] }];
+  const consumeRow = [/DELETE FROM otp_codes WHERE otp_id = \$1 RETURNING otp_id/, { rows: [{ otp_id: 1 }], rowCount: 1 }];
+  const userRow = (user) => [/SELECT student_id, email, is_banned, suspended_until FROM users/, { rows: user ? [user] : [] }];
 
   test.each([
     ["VOTP-01 OTP 5 หลัก", { email: "a@ku.th", otp: "12345" }],
@@ -169,70 +185,116 @@ describe("VOTP POST /api/verify-otp", () => {
     expect(res.status).toBe(400);
   });
 
-  test("VOTP-05 OTP ผิดหรือหมดอายุ → 400 และล้าง OTP ที่หมดอายุ", async () => {
+  test("VOTP-05 ไม่มี OTP ที่ยังไม่หมดอายุ → 400 และล้าง OTP ที่หมดอายุ", async () => {
     const res = await request(app).post("/api/verify-otp").send({ email: "a@ku.th", otp: "000000" });
     expect(res.status).toBe(400);
     expect(res.body.message).toBe("Invalid or expired OTP");
     expect(findQuery(db.query, /expires_at <= NOW\(\)/)).toBeDefined();
   });
 
-  test("VOTP-06 OTP ถูกต้อง → 200 พร้อม student_id", async () => {
-    routeQueries(db.query, [otpRow, [/SELECT student_id, is_banned/, { rows: [activeUser] }]]);
+  test("VOTP-06 OTP ถูกต้อง → 200 พร้อม student_id และ token ผู้ใช้", async () => {
+    routeQueries(db.query, [otpRow, consumeRow, userRow(activeUser)]);
     const res = await request(app).post("/api/verify-otp").send({ email: "Somchai@ku.th", otp: "123456" });
     expect(res.status).toBe(200);
     expect(res.body).toMatchObject({ success: true, student_id: activeUser.student_id });
+    const payload = jwt.verify(res.body.token, process.env.JWT_SECRET);
+    expect(payload).toMatchObject({ role: "user", student_id: activeUser.student_id, email: activeUser.email });
+    expect(findQuery(db.query, /SELECT otp_id, otp FROM otp_codes/)[1]).toEqual(["somchai@ku.th"]);
   });
 
   test("VOTP-07 OTP ถูกต้องแต่บัญชีถูกแบน → 403", async () => {
-    routeQueries(db.query, [otpRow, [/SELECT student_id, is_banned/, { rows: [{ ...activeUser, is_banned: true }] }]]);
+    routeQueries(db.query, [otpRow, consumeRow, userRow({ ...activeUser, is_banned: true })]);
     const res = await request(app).post("/api/verify-otp").send({ email: activeUser.email, otp: "123456" });
     expect(res.status).toBe(403);
   });
 
-  test("VOTP-08 OTP ถูกต้องแต่ไม่พบผู้ใช้ → student_id = 'unknown'", async () => {
-    routeQueries(db.query, [otpRow]);
+  test("VOTP-08 OTP ถูกต้องแต่ไม่พบผู้ใช้ → student_id = 'unknown' และไม่มี token", async () => {
+    routeQueries(db.query, [otpRow, consumeRow]);
     const res = await request(app).post("/api/verify-otp").send({ email: activeUser.email, otp: "123456" });
     expect(res.status).toBe(200);
     expect(res.body.student_id).toBe("unknown");
+    expect(res.body.token).toBeNull();
   });
 
   test("VOTP-09 ฐานข้อมูลผิดพลาด → 500", async () => {
-    routeQueries(db.query, [[/DELETE FROM otp_codes/, new Error("down")]]);
+    routeQueries(db.query, [[/FROM otp_codes/, new Error("down")]]);
     const res = await request(app).post("/api/verify-otp").send({ email: activeUser.email, otp: "123456" });
     expect(res.status).toBe(500);
+  });
+
+  test("VOTP-10 OTP ผิด → นับจำนวนครั้ง และยังไม่ลบ OTP", async () => {
+    routeQueries(db.query, [otpRow, [/SET attempts = attempts \+ 1/, { rows: [{ attempts: 1 }] }]]);
+    const res = await request(app).post("/api/verify-otp").send({ email: activeUser.email, otp: "999999" });
+    expect(res.status).toBe(400);
+    expect(findQuery(db.query, /DELETE FROM otp_codes WHERE otp_id/)).toBeUndefined();
+  });
+
+  test("VOTP-11 OTP ผิดครบ 5 ครั้ง → 429 และลบ OTP ทิ้ง", async () => {
+    routeQueries(db.query, [otpRow, [/SET attempts = attempts \+ 1/, { rows: [{ attempts: 5 }] }]]);
+    const res = await request(app).post("/api/verify-otp").send({ email: activeUser.email, otp: "999999" });
+    expect(res.status).toBe(429);
+    expect(findQuery(db.query, /DELETE FROM otp_codes WHERE otp_id/)).toBeDefined();
+  });
+
+  test("VOTP-12 OTP ถูกต้องแต่บัญชีถูกระงับชั่วคราว → 403 พร้อม suspended_until", async () => {
+    const until = new Date(Date.now() + 86_400_000).toISOString();
+    routeQueries(db.query, [otpRow, consumeRow, userRow({ ...activeUser, suspended_until: until })]);
+    const res = await request(app).post("/api/verify-otp").send({ email: activeUser.email, otp: "123456" });
+    expect(res.status).toBe(403);
+    expect(res.body.suspended_until).toBe(until);
   });
 });
 
 describe("USR ข้อมูลผู้ใช้", () => {
-  test("USR-01 GET /api/users/:email พบผู้ใช้ → 200 (ค้นด้วยอีเมลตัวพิมพ์เล็ก)", async () => {
+  const userToken = (email = activeUser.email) =>
+    jwt.sign({ role: "user", student_id: activeUser.student_id, email }, process.env.JWT_SECRET, { expiresIn: "1h" });
+
+  test("USR-01 GET /api/users/:email ของตัวเอง → 200 (ค้นด้วยอีเมลตัวพิมพ์เล็ก)", async () => {
     routeQueries(db.query, [[/FROM users WHERE email/, { rows: [activeUser] }]]);
-    const res = await request(app).get("/api/users/SOMCHAI@ku.th");
+    const res = await request(app).get("/api/users/SOMCHAI@ku.th").set("Authorization", `Bearer ${userToken()}`);
     expect(res.status).toBe(200);
     expect(res.body.user.email).toBe(activeUser.email);
     expect(findQuery(db.query, /FROM users WHERE email/)[1]).toEqual(["somchai@ku.th"]);
   });
 
   test("USR-02 GET /api/users/:email ไม่พบ → 404", async () => {
-    const res = await request(app).get("/api/users/nobody@ku.th");
+    const res = await request(app).get("/api/users/nobody@ku.th").set("Authorization", `Bearer ${userToken("nobody@ku.th")}`);
     expect(res.status).toBe(404);
   });
 
   test("USR-03 GET /api/users/:email อีเมลผิดรูปแบบ → 400", async () => {
-    const res = await request(app).get("/api/users/not-an-email");
+    const res = await request(app).get("/api/users/not-an-email").set("Authorization", `Bearer ${userToken()}`);
     expect(res.status).toBe(400);
   });
 
-  test("USR-04 GET /user → รายชื่อผู้ใช้ทั้งหมด", async () => {
+  test("USR-04 GET /api/users/:email ไม่มี token → 401", async () => {
+    const res = await request(app).get(`/api/users/${activeUser.email}`);
+    expect(res.status).toBe(401);
+    expect(db.query).not.toHaveBeenCalled();
+  });
+
+  test("USR-05 GET /api/users/:email ของคนอื่น → 403", async () => {
+    const res = await request(app).get("/api/users/other@ku.th").set("Authorization", `Bearer ${userToken()}`);
+    expect(res.status).toBe(403);
+    expect(db.query).not.toHaveBeenCalled();
+  });
+
+  test("USR-06 GET /user ด้วย token แอดมิน → รายชื่อผู้ใช้ทั้งหมด", async () => {
     db.query.mockImplementation((_sql, cb) => cb(null, { rows: [activeUser] }));
-    const res = await request(app).get("/user");
+    const res = await request(app).get("/user").set("Authorization", `Bearer ${adminToken()}`);
     expect(res.status).toBe(200);
     expect(res.body).toEqual([activeUser]);
   });
 
-  test("USR-05 GET /user ฐานข้อมูลผิดพลาด → 500", async () => {
+  test("USR-07 GET /user ฐานข้อมูลผิดพลาด → 500", async () => {
     db.query.mockImplementation((_sql, cb) => cb(new Error("down")));
-    const res = await request(app).get("/user");
+    const res = await request(app).get("/user").set("Authorization", `Bearer ${adminToken()}`);
     expect(res.status).toBe(500);
+  });
+
+  test("USR-08 GET /user ด้วย token ผู้ใช้ทั่วไป → 401", async () => {
+    const res = await request(app).get("/user").set("Authorization", `Bearer ${userToken()}`);
+    expect(res.status).toBe(401);
   });
 });
 
@@ -261,31 +323,13 @@ describe("RNK จัดอันดับ", () => {
   });
 });
 
-describe("STAT GET /api/stats/summary", () => {
-  test("STAT-01 คืนตัวเลขสรุป 6 ค่า (วันนี้นับตามเวลาประเทศไทย)", async () => {
-    const row = { lost_today: 2, found_today: 1, total_lost: 55, total_found: 40, successful_returns: 12, new_users: 3 };
-    routeQueries(db.query, [[/AS lost_today/, { rows: [row] }]]);
-    const res = await request(app).get("/api/stats/summary");
-
-    expect(res.status).toBe(200);
-    expect(res.body).toEqual(row);
-    const [sql] = findQuery(db.query, /AS lost_today/);
-    expect(sql).toMatch(/Asia\/Bangkok/);
-    expect(sql).toMatch(/INTERVAL '7 days'/);
-  });
-
-  test("STAT-02 ฐานข้อมูลผิดพลาด → 500", async () => {
-    routeQueries(db.query, [[/./, new Error("down")]]);
-    const res = await request(app).get("/api/stats/summary");
-    expect(res.status).toBe(500);
-  });
-});
-
 describe("LN POST /api/notifications/line", () => {
   afterEach(() => delete process.env.NOTIFY_API_KEY);
+  const post = () => request(app).post("/api/notifications/line").set("x-api-key", "secret");
 
-  test("LN-01 ไม่มี message → 400", async () => {
-    const res = await request(app).post("/api/notifications/line").send({ message: "  " });
+  test("LN-01 key ถูกต้องแต่ไม่มี message → 400", async () => {
+    process.env.NOTIFY_API_KEY = "secret";
+    const res = await post().send({ message: "  " });
     expect(res.status).toBe(400);
   });
 
@@ -299,17 +343,21 @@ describe("LN POST /api/notifications/line", () => {
   test("LN-03 key ถูกต้อง → ส่งข้อความที่ trim แล้ว", async () => {
     process.env.NOTIFY_API_KEY = "secret";
     sendLineNotification.mockResolvedValue({ success: true });
-    const res = await request(app)
-      .post("/api/notifications/line")
-      .set("x-api-key", "secret")
-      .send({ message: "  hello  ", userId: "U1" });
+    const res = await post().send({ message: "  hello  ", userId: "U1" });
     expect(res.status).toBe(200);
     expect(sendLineNotification).toHaveBeenCalledWith("hello", "U1");
   });
 
   test("LN-04 LINE API ล้มเหลว → 502", async () => {
+    process.env.NOTIFY_API_KEY = "secret";
     sendLineNotification.mockRejectedValue(new Error("LINE API 500"));
-    const res = await request(app).post("/api/notifications/line").send({ message: "hi" });
+    const res = await post().send({ message: "hi" });
     expect(res.status).toBe(502);
+  });
+
+  test("LN-05 ไม่ได้ตั้ง NOTIFY_API_KEY → endpoint ปิดใช้งาน (401)", async () => {
+    const res = await request(app).post("/api/notifications/line").send({ message: "hi" });
+    expect(res.status).toBe(401);
+    expect(sendLineNotification).not.toHaveBeenCalled();
   });
 });

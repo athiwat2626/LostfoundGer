@@ -21,3 +21,11 @@ export const hasValidUserSession = () => {
 export const clearUserSession = () => {
   SESSION_KEYS.forEach((key) => localStorage.removeItem(key));
 };
+
+// บันทึกสถานะเข้าสู่ระบบหลังยืนยันตัวตนสำเร็จ (OTP หรือ Google)
+export const saveUserSession = ({ token, email, student_id }) => {
+  localStorage.setItem("isLoggedIn", "true");
+  localStorage.setItem("email", email);
+  localStorage.setItem("student_id", student_id || "unknown");
+  if (token) localStorage.setItem("userToken", token);
+};

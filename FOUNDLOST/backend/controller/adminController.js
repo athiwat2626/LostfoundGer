@@ -1,11 +1,12 @@
 const db = require("../db");
 const { validateItem } = require("../validation");
 const { findMatches } = require("../services/matching");
+const { recordAudit, diff } = require("../services/auditLog");
+const { getSettingSafe } = require("../services/settings");
 
 const ITEM_TABLES = { found: "found_items", lost: "lost_items" };
 const ITEM_DATE_FIELD = { found: "found_date", lost: "lost_date" };
 const ITEM_LOCATION_FIELD = { found: "found_location", lost: "lost_location" };
-const VALID_DURATIONS = [3, 7, 30];
 
 // ชื่อการดำเนินการที่แสดงในลำดับเหตุการณ์ของรายงาน
 const ACTION_TIMELINE_LABEL = { dismissed: "ยกเลิกรายงาน", warning: "ออกคำเตือน", suspend: "ระงับบัญชี", ban: "แบนถาวร" };
@@ -263,8 +264,9 @@ const moderateReport = async (req, res) => {
   if (!VALID_ACTIONS.includes(action)) {
     return res.status(400).json({ success: false, message: "Invalid action" });
   }
-  if (action === "suspend" && !VALID_DURATIONS.includes(Number(duration_days))) {
-    return res.status(400).json({ success: false, message: "duration_days must be 3, 7, or 30" });
+  const durations = await getSettingSafe("suspend_durations");
+  if (action === "suspend" && !durations.includes(Number(duration_days))) {
+    return res.status(400).json({ success: false, message: `duration_days must be one of ${durations.join(", ")}` });
   }
 
   const client = await db.connect();
@@ -316,6 +318,19 @@ const moderateReport = async (req, res) => {
        RETURNING *`,
       [newStatus, actionTaken, note || null, req.admin.admin_id, report_id]
     );
+
+    await recordAudit(client, req, {
+      action: `report.${action}`,
+      targetType: "report",
+      targetId: report_id,
+      summary: `${ACTION_TIMELINE_LABEL[actionTaken] || action} จากรายงาน ${report_id}${studentId ? ` (ผู้ใช้ ${studentId})` : ""}`,
+      details: {
+        item: { type: item_type, item_id: reported_item_id },
+        student_id: studentId || null,
+        duration_days: action === "suspend" ? Number(duration_days) : undefined,
+        note: note || undefined,
+      },
+    });
 
     await client.query("COMMIT");
     res.status(200).json({ success: true, report: updateResult.rows[0] });
@@ -435,45 +450,53 @@ const moderateUser = async (req, res) => {
   if (!VALID_ACTIONS.includes(action)) {
     return res.status(400).json({ success: false, message: "Invalid action" });
   }
-  if (action === "suspend" && !VALID_DURATIONS.includes(Number(duration_days))) {
-    return res.status(400).json({ success: false, message: "duration_days must be 3, 7, or 30" });
+  const durations = await getSettingSafe("suspend_durations");
+  if (action === "suspend" && !durations.includes(Number(duration_days))) {
+    return res.status(400).json({ success: false, message: `duration_days must be one of ${durations.join(", ")}` });
   }
 
-  try {
-    let result;
-    if (action === "warn") {
-      result = await db.query(
-        "UPDATE users SET warning_count = warning_count + 1 WHERE student_id = $1 RETURNING *",
-        [student_id]
-      );
-    } else if (action === "suspend") {
-      result = await db.query(
-        "UPDATE users SET suspended_until = NOW() + ($1 || ' days')::interval WHERE student_id = $2 RETURNING *",
-        [String(duration_days), student_id]
-      );
-    } else if (action === "ban") {
-      result = await db.query("UPDATE users SET is_banned = true WHERE student_id = $1 RETURNING *", [
-        student_id,
-      ]);
-    } else if (action === "unsuspend") {
-      result = await db.query(
-        "UPDATE users SET suspended_until = NULL WHERE student_id = $1 RETURNING *",
-        [student_id]
-      );
-    } else if (action === "unban") {
-      result = await db.query("UPDATE users SET is_banned = false WHERE student_id = $1 RETURNING *", [
-        student_id,
-      ]);
-    }
+  const MODERATION_SQL = {
+    warn: "UPDATE users SET warning_count = warning_count + 1 WHERE student_id = $1 RETURNING *",
+    suspend: "UPDATE users SET suspended_until = NOW() + ($2 || ' days')::interval WHERE student_id = $1 RETURNING *",
+    ban: "UPDATE users SET is_banned = true WHERE student_id = $1 RETURNING *",
+    unsuspend: "UPDATE users SET suspended_until = NULL WHERE student_id = $1 RETURNING *",
+    unban: "UPDATE users SET is_banned = false WHERE student_id = $1 RETURNING *",
+  };
+  const ACTION_TEXT = { warn: "ออกคำเตือน", suspend: "ระงับบัญชี", ban: "แบนถาวร", unsuspend: "ยกเลิกการระงับ", unban: "ยกเลิกการแบน" };
+  const STATE_FIELDS = ["warning_count", "suspended_until", "is_banned"];
 
-    if (result.rows.length === 0) {
+  const client = await db.connect();
+  try {
+    await client.query("BEGIN");
+    const before = await client.query(
+      "SELECT warning_count, suspended_until, is_banned FROM users WHERE student_id = $1 FOR UPDATE",
+      [student_id]
+    );
+    if (before.rows.length === 0) {
+      await client.query("ROLLBACK");
       return res.status(404).json({ success: false, message: "User not found" });
     }
 
+    const result = await client.query(
+      MODERATION_SQL[action],
+      action === "suspend" ? [student_id, String(duration_days)] : [student_id]
+    );
+    await recordAudit(client, req, {
+      action: `user.${action}`,
+      targetType: "user",
+      targetId: student_id,
+      summary: `${ACTION_TEXT[action]}ผู้ใช้ ${student_id}${action === "suspend" ? ` ${Number(duration_days)} วัน` : ""}`,
+      details: { changes: diff(before.rows[0], result.rows[0], STATE_FIELDS) },
+    });
+    await client.query("COMMIT");
+
     res.status(200).json({ success: true, user: result.rows[0] });
   } catch (error) {
+    await client.query("ROLLBACK").catch(() => {});
     console.error("Error moderating user:", error);
     res.status(500).json({ success: false, message: "Internal server error" });
+  } finally {
+    client.release();
   }
 };
 
@@ -530,8 +553,17 @@ const updateItem = async (req, res) => {
   const dateValue = validation.value[dateField];
   const locationValue = validation.value[locationField];
 
+  const EDITABLE = ["item_name", "category", "item_color", locationField, "description", "deposit_location", dateField];
+  const client = await db.connect();
   try {
-    const result = await db.query(
+    await client.query("BEGIN");
+    const before = await client.query(`SELECT * FROM ${table} WHERE item_id = $1 FOR UPDATE`, [item_id]);
+    if (before.rows.length === 0) {
+      await client.query("ROLLBACK");
+      return res.status(404).json({ success: false, message: "Item not found" });
+    }
+
+    const result = await client.query(
       `UPDATE ${table}
        SET item_name = $1, category = $2, item_color = $3, ${locationField} = $4,
            description = $5, deposit_location = $6, ${dateField} = $7
@@ -540,14 +572,23 @@ const updateItem = async (req, res) => {
       [item_name, category, item_color, locationValue, description, deposit_location, dateValue, item_id]
     );
 
-    if (result.rows.length === 0) {
-      return res.status(404).json({ success: false, message: "Item not found" });
-    }
+    const changes = diff(before.rows[0], result.rows[0], EDITABLE);
+    await recordAudit(client, req, {
+      action: "item.update",
+      targetType: `${type}_item`,
+      targetId: item_id,
+      summary: `แก้ไข${type === "found" ? "ของที่พบ" : "ของหาย"} #${item_id} "${result.rows[0].item_name}" (${Object.keys(changes).length} ช่อง)`,
+      details: { changes },
+    });
+    await client.query("COMMIT");
 
     res.status(200).json({ success: true, item: result.rows[0] });
   } catch (error) {
+    await client.query("ROLLBACK").catch(() => {});
     console.error("Error updating admin item:", error);
     res.status(500).json({ success: false, message: "Internal server error" });
+  } finally {
+    client.release();
   }
 };
 
@@ -576,6 +617,141 @@ const getMatches = async (_req, res) => {
   }
 };
 
+
+// ─── หน้าจัดการรายการของหาย/ของพบ (ฝั่งแอดมิน) ────────────────────────────────
+// endpoint เดิม GET /admin/items คงรูปแบบไว้ตามเดิม ส่วนหน้าจัดการใหม่ใช้ 3 endpoint ด้านล่าง
+const ITEM_STATUSES = ["open", "returned"];
+const ID_PATTERN = /^\d{1,18}$/;
+const DATE_ONLY = /^\d{4}-\d{2}-\d{2}$/;
+
+// ─── GET /admin/items/summary?type= ─────────────────────────────────────────
+const getItemSummary = async (req, res) => {
+  const table = ITEM_TABLES[req.query.type];
+  if (!table) return res.status(400).json({ success: false, message: "type must be 'found' or 'lost'" });
+  try {
+    const [counts, categories] = await Promise.all([
+      db.query(
+        `SELECT COUNT(*)::int AS total,
+                COUNT(*) FILTER (WHERE created_at >= NOW() - INTERVAL '7 days')::int AS recent,
+                COUNT(*) FILTER (WHERE status = 'open')::int AS open,
+                COUNT(*) FILTER (WHERE status = 'returned')::int AS returned
+         FROM ${table}`
+      ),
+      db.query(`SELECT DISTINCT category FROM ${table} WHERE category IS NOT NULL AND category <> '' ORDER BY category`),
+    ]);
+    res.status(200).json({ success: true, summary: counts.rows[0], categories: categories.rows.map((r) => r.category) });
+  } catch (error) {
+    console.error("Error fetching item summary:", error);
+    res.status(500).json({ success: false, message: "Internal server error" });
+  }
+};
+
+// ─── GET /admin/items/search ────────────────────────────────────────────────
+// query: type, q (ชื่อสิ่งของ/รหัสนิสิต), status (open|returned), category, from/to (วันที่แจ้ง YYYY-MM-DD), limit, offset
+const searchItems = async (req, res) => {
+  const { type, q, status, category, from, to } = req.query;
+  const table = ITEM_TABLES[type];
+  if (!table) return res.status(400).json({ success: false, message: "type must be 'found' or 'lost'" });
+  if (status && !ITEM_STATUSES.includes(status)) return res.status(400).json({ success: false, message: "status ไม่ถูกต้อง" });
+  if ((from && !DATE_ONLY.test(from)) || (to && !DATE_ONLY.test(to))) {
+    return res.status(400).json({ success: false, message: "วันที่ต้องเป็น YYYY-MM-DD" });
+  }
+
+  const limit = Math.min(Math.max(Number(req.query.limit) || 20, 1), 100);
+  const offset = Math.max(Number(req.query.offset) || 0, 0);
+  const conditions = [];
+  const params = [];
+  const add = (sql, value) => {
+    params.push(value);
+    conditions.push(sql.replaceAll("?", `$${params.length}`));
+  };
+  if (q && q.trim()) add("(i.item_name ILIKE ? OR i.student_id ILIKE ?)", `%${q.trim().slice(0, 100)}%`);
+  if (status) add("i.status = ?", status);
+  if (category) add("i.category = ?", String(category).slice(0, 100));
+  // วันที่แจ้งตามเวลาประเทศไทย
+  if (from) add("i.created_at >= (?::date)::timestamp AT TIME ZONE 'Asia/Bangkok'", from);
+  if (to) add("i.created_at < ((?::date + 1)::timestamp AT TIME ZONE 'Asia/Bangkok')", to);
+  const where = conditions.length ? `WHERE ${conditions.join(" AND ")}` : "";
+
+  try {
+    const [items, count] = await Promise.all([
+      db.query(
+        `SELECT i.*, u.first_name AS owner_first_name, u.last_name AS owner_last_name, u.email AS owner_email,
+                (SELECT COUNT(*)::int FROM claims c
+                  WHERE c.item_type = $${params.length + 1} AND c.item_id = i.item_id AND c.status = 'pending') AS pending_claims
+         FROM ${table} i LEFT JOIN users u ON u.student_id = i.student_id
+         ${where}
+         ORDER BY i.item_id DESC
+         LIMIT $${params.length + 2} OFFSET $${params.length + 3}`,
+        [...params, type, limit, offset]
+      ),
+      db.query(`SELECT COUNT(*)::int AS count FROM ${table} i ${where}`, params),
+    ]);
+    res.status(200).json({ success: true, items: items.rows, total: count.rows[0].count, limit, offset });
+  } catch (error) {
+    console.error("Error searching admin items:", error);
+    res.status(500).json({ success: false, message: "Internal server error" });
+  }
+};
+
+// ─── GET /admin/items/:type/:item_id ────────────────────────────────────────
+// รายละเอียดสำหรับแอดมิน: ข้อมูลรายการ + ผู้แจ้ง + ผู้ติดต่อขอรับ + คู่ที่ระบบจับได้ + ประวัติการดำเนินการ
+const getItemDetail = async (req, res) => {
+  const { type, item_id } = req.params;
+  const table = ITEM_TABLES[type];
+  if (!table || !ID_PATTERN.test(String(item_id))) {
+    return res.status(400).json({ success: false, message: "ข้อมูลรายการไม่ถูกต้อง" });
+  }
+  try {
+    const itemResult = await db.query(
+      `SELECT i.*, u.first_name AS owner_first_name, u.last_name AS owner_last_name, u.email AS owner_email,
+              u.contact_email AS owner_contact_email, u.phone AS owner_phone,
+              r.first_name AS returner_first_name, r.last_name AS returner_last_name
+       FROM ${table} i
+       LEFT JOIN users u ON u.student_id = i.student_id
+       LEFT JOIN users r ON r.student_id = i.returned_by
+       WHERE i.item_id = $1`,
+      [item_id]
+    );
+    const item = itemResult.rows[0];
+    if (!item) return res.status(404).json({ success: false, message: "Item not found" });
+
+    const [claims, matches, history] = await Promise.all([
+      db.query(
+        `SELECT c.claim_id, c.status, c.message, c.created_at, c.claimant_student_id,
+                u.first_name, u.last_name, u.email
+         FROM claims c LEFT JOIN users u ON u.student_id = c.claimant_student_id
+         WHERE c.item_type = $1 AND c.item_id = $2
+         ORDER BY c.created_at DESC`,
+        [type, item_id]
+      ),
+      db.query(
+        `SELECT COUNT(*)::int AS count FROM match_notifications
+         WHERE ${type === "lost" ? "lost_item_id" : "found_item_id"} = $1`,
+        [item_id]
+      ),
+      db.query(
+        `SELECT l.log_id, l.action, l.summary, l.created_at, COALESCE(a.display_name, a.email, l.admin_email) AS admin_name
+         FROM admin_audit_logs l LEFT JOIN admins a ON a.admin_id = l.admin_id
+         WHERE l.target_type = $1 AND l.target_id = $2
+         ORDER BY l.created_at DESC LIMIT 20`,
+        [`${type}_item`, String(item_id)]
+      ),
+    ]);
+
+    res.status(200).json({
+      success: true,
+      item,
+      claims: claims.rows,
+      match_count: matches.rows[0].count,
+      history: history.rows,
+    });
+  } catch (error) {
+    console.error("Error fetching admin item detail:", error);
+    res.status(500).json({ success: false, message: "Internal server error" });
+  }
+};
+
 // ─── DELETE /admin/items/:type/:item_id ────────────────────────────────────
 const deleteItem = async (req, res) => {
   const { type, item_id } = req.params;
@@ -584,16 +760,31 @@ const deleteItem = async (req, res) => {
     return res.status(400).json({ success: false, message: "type must be 'found' or 'lost'" });
   }
 
+  const client = await db.connect();
   try {
-    const result = await db.query(`DELETE FROM ${table} WHERE item_id = $1 RETURNING item_id`, [item_id]);
+    await client.query("BEGIN");
+    const result = await client.query(`DELETE FROM ${table} WHERE item_id = $1 RETURNING *`, [item_id]);
     if (result.rows.length === 0) {
+      await client.query("ROLLBACK");
       return res.status(404).json({ success: false, message: "Item not found" });
     }
-    await db.query("DELETE FROM claims WHERE item_type = $1 AND item_id = $2", [type, item_id]);
+    const claims = await client.query("DELETE FROM claims WHERE item_type = $1 AND item_id = $2", [type, item_id]);
+    const deleted = result.rows[0];
+    await recordAudit(client, req, {
+      action: "item.delete",
+      targetType: `${type}_item`,
+      targetId: item_id,
+      summary: `ลบ${type === "found" ? "ของที่พบ" : "ของหาย"} #${item_id} "${deleted.item_name}"${deleted.student_id ? ` ของผู้ใช้ ${deleted.student_id}` : ""}`,
+      details: { deleted, claims_removed: claims.rowCount },
+    });
+    await client.query("COMMIT");
     res.status(200).json({ success: true });
   } catch (error) {
+    await client.query("ROLLBACK").catch(() => {});
     console.error("Error deleting admin item:", error);
     res.status(500).json({ success: false, message: "Internal server error" });
+  } finally {
+    client.release();
   }
 };
 
@@ -609,6 +800,9 @@ module.exports = {
   getMatches,
   moderateUser,
   getItems,
+  getItemSummary,
+  searchItems,
+  getItemDetail,
   updateItem,
   deleteItem,
 };

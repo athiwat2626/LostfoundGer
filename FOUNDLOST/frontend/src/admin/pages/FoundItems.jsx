@@ -1,5 +1,5 @@
 import ItemsPage from "./ItemsPage";
 
-const FoundItems = () => <ItemsPage type="found" title="รายการแจ้งพบของ" />;
+const FoundItems = () => <ItemsPage type="found" />;
 
 export default FoundItems;

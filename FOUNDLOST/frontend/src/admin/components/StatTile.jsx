@@ -9,7 +9,8 @@ const COLOR_MAP = {
   slate: "bg-slate-100 text-slate-500",
 };
 
-const StatTile = ({ icon: Icon, label, sublabel, value, color = "slate", onClick, active }) => {
+// wrapLabel: ให้ป้ายขึ้นได้ 2 บรรทัด (การ์ดแคบบนมือถือ) — ค่าเริ่มต้นตัดบรรทัดเดียวแบบเดิม
+const StatTile = ({ icon: Icon, label, sublabel, value, color = "slate", onClick, active, wrapLabel = false }) => {
   const Wrapper = onClick ? "button" : "div";
 
   return (
@@ -24,7 +25,7 @@ const StatTile = ({ icon: Icon, label, sublabel, value, color = "slate", onClick
       </div>
       <div className="min-w-0">
         <p className="text-xl font-bold text-slate-800">{value}</p>
-        <p className="text-xs font-medium text-slate-600 truncate">{label}</p>
+        <p className={`text-xs font-medium text-slate-600 ${wrapLabel ? "line-clamp-2 leading-snug" : "truncate"}`}>{label}</p>
         {sublabel && <p className="text-[11px] text-slate-400 truncate">{sublabel}</p>}
       </div>
       {onClick && <ChevronRight size={16} className="ml-auto shrink-0 text-brand/70" />}

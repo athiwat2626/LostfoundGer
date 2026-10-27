@@ -2,6 +2,8 @@
 const { backendPath } = require("./helpers");
 
 const mockSendMail = jest.fn();
+// certificateService อ่านชื่อผู้ลงนามจากค่าระบบ → mock db ไม่ให้ต่อฐานข้อมูลจริง (ได้ค่าเริ่มต้น)
+jest.mock("../../../FOUNDLOST/backend/db", () => ({ query: jest.fn(async () => ({ rows: [] })), connect: jest.fn() }));
 jest.mock("nodemailer", () => ({ createTransport: jest.fn(() => ({ sendMail: mockSendMail })) }));
 
 // certificateService อ่าน env ตอนโหลดโมดูล จึงโหลดใหม่แยกในแต่ละเทส

@@ -6,6 +6,7 @@ const PDFDocument = require('pdfkit');
 const nodemailer = require('nodemailer');
 const { PassThrough } = require('stream');
 const path = require('path');
+const { getSettings } = require('./services/settings');
 
 // ฟอนต์ภาษาไทย (Sarabun, SIL Open Font License) — ฟอนต์มาตรฐานของ PDFKit ไม่มีอักษรไทย
 const FONT_REGULAR = path.join(__dirname, 'assets', 'fonts', 'Sarabun-Regular.ttf');
@@ -56,7 +57,14 @@ function generateCertificatePDF(user) {
       .moveDown(0.5)
       .text('แสดงถึงความมีน้ำใจและความซื่อสัตย์ต่อสังคม', { align: 'center' })
       .moveDown(2);
-    doc.fontSize(12).fillColor('#666666').text(`ออกให้ ณ วันที่ ${issueDate}`, { align: 'center' });
+    // ผู้ลงนาม (ตั้งค่าได้ในหน้าแอดมิน)
+    if (user.signerName) {
+      doc.font('Thai').fontSize(14).fillColor('#333333').text('ลงชื่อ ........................................', { align: 'center' }).moveDown(0.3);
+      doc.font('Thai-Bold').fontSize(14).text(`(${user.signerName})`, { align: 'center' });
+      if (user.signerTitle) doc.font('Thai').fontSize(13).fillColor('#555555').text(user.signerTitle, { align: 'center' });
+      doc.moveDown(1);
+    }
+    doc.font('Thai').fontSize(12).fillColor('#666666').text(`ออกให้ ณ วันที่ ${issueDate}`, { align: 'center' });
 
     doc.end();
   });
@@ -95,7 +103,12 @@ async function sendCertificateEmail(user, pdfBuffer) {
 
 /** สร้าง PDF แล้วส่งอีเมลในขั้นตอนเดียว */
 async function issueCertificate(user) {
-  const pdfBuffer = await generateCertificatePDF(user);
+  const settings = await getSettings().catch(() => ({}));
+  const pdfBuffer = await generateCertificatePDF({
+    ...user,
+    signerName: settings.certificate_signer_name || '',
+    signerTitle: settings.certificate_signer_title || '',
+  });
   await sendCertificateEmail(user, pdfBuffer);
 }
 

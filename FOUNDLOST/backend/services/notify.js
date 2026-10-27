@@ -9,7 +9,8 @@ const transporter =
     ? nodemailer.createTransport({ service: "gmail", auth: { user: mailUser, pass: mailPassword } })
     : null;
 
-const APP_URL = process.env.APP_URL || "http://localhost:5173";
+// APP_BASE_URL คือค่าหลัก (ใช้ร่วมกับระบบ LINE) ส่วน APP_URL คือชื่อเดิม
+const APP_URL = (process.env.APP_BASE_URL || process.env.APP_URL || "http://localhost:5173").replace(/\/+$/, "");
 
 const escapeHtml = (value) =>
   String(value || "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);

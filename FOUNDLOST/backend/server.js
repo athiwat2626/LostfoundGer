@@ -27,6 +27,9 @@ const bcrypt = require("bcryptjs");
 const { sendLineNotification } = require("./services/lineNotification");
 const line = require("./services/line");
 const lineRoute = require("./routes/lineRoute");
+const maintenanceGuard = require("./middleware/maintenance");
+const { getPublicSettings } = require("./controller/settingsController");
+const { createGoogleLogin } = require("./controller/googleAuthController");
 
 
 // ตั้งค่าการอ่าน request, การเรียกใช้ข้ามโดเมน และการเข้าถึงไฟล์อัปโหลด
@@ -35,6 +38,22 @@ app.use(cors());
 app.post("/api/line/webhook", express.raw({ type: "*/*", limit: "1mb" }), line.webhook.handler);
 app.use(express.json()); // Middleware สำหรับอ่านข้อมูล JSON
 app.use(express.urlencoded({ extended: true }));
+// ตรวจสุขภาพระบบสำหรับ Docker/CI: ต้องต่อฐานข้อมูลและเห็นตารางหลักได้ (อยู่ก่อนโหมดปิดปรับปรุงเพื่อไม่ให้ถูกบล็อก)
+app.get("/health", async (req, res) => {
+  try {
+    await db.query("SELECT 1 FROM users LIMIT 1");
+    await db.query("SELECT 1 FROM found_items LIMIT 1");
+    await db.query("SELECT 1 FROM lost_items LIMIT 1");
+    res.json({ status: "ok" });
+  } catch (error) {
+    console.error("Health check failed:", error.message);
+    res.status(503).json({ status: "error", message: "Database unavailable" });
+  }
+});
+// โหมดปิดปรับปรุง (ตั้งในหน้าแอดมิน): ผู้ใช้ทั่วไปได้ 503 ส่วนแอดมินใช้งานได้ตามปกติ
+app.use(maintenanceGuard);
+// ค่าที่หน้าเว็บผู้ใช้ต้องรู้: หมวดหมู่, จุดรับฝาก, ประกาศ, สถานะปิดปรับปรุง
+app.get("/api/settings/public", getPublicSettings);
 app.use("/assets/uploads/", express.static(path.join(__dirname, "assets")));
 
 // Endpoint พื้นฐานสำหรับตรวจสอบว่าเซิร์ฟเวอร์ทำงานอยู่
@@ -148,7 +167,64 @@ const transporter = mailUser && mailPassword
 const MAX_OTP_ATTEMPTS = 5; // กรอก OTP ผิดได้ไม่เกินกี่ครั้งต่อรหัส
 const OTP_RESEND_SECONDS = 60; // ต้องรอกี่วินาทีก่อนขอรหัสใหม่
 
-// สร้าง OTP ใหม่ เก็บลง PostgreSQL และส่งไปทางอีเมล
+// สร้าง OTP ใหม่ เก็บลง PostgreSQL และส่งไปทางอีเมล (ใช้ทั้ง /api/send-otp และขั้นที่ 2 ของการเข้าด้วย Google)
+// ขอถี่เกินไป → คืน { wait: วินาทีที่ต้องรอ } โดยไม่ส่งรหัสใหม่
+async function issueOtp(normalizedEmail) {
+  // ป้องกันการขอ OTP ถี่เกินไป
+  const recent = await db.query(
+    `SELECT CEIL(EXTRACT(EPOCH FROM (created_at + $2::interval - NOW())))::int AS wait
+     FROM otp_codes WHERE email = $1 AND created_at > NOW() - $2::interval
+     ORDER BY created_at DESC LIMIT 1`,
+    [normalizedEmail, `${OTP_RESEND_SECONDS} seconds`]
+  );
+  if (recent.rows.length > 0) {
+    return { wait: Math.max(1, recent.rows[0].wait) };
+  }
+
+  // สร้าง OTP 6 หลัก และแทนที่ OTP เดิมของอีเมลนี้
+  const otp = Math.floor(100000 + Math.random() * 900000).toString();
+
+  await db.query("DELETE FROM otp_codes WHERE email = $1", [normalizedEmail]);
+  await db.query(
+    `INSERT INTO otp_codes (email, otp, expires_at)
+     VALUES ($1, $2, NOW() + INTERVAL '5 minutes')`,
+    [normalizedEmail, otp]
+  );
+
+  // ส่ง OTP หลังจากบันทึกลงฐานข้อมูลพร้อมกำหนดอายุ 5 นาที
+  // อีเมลมีชื่อผู้ส่ง หัวเรื่องภาษาไทย และเนื้อหาแบบข้อความธรรมดาคู่กับ HTML
+  // (อีเมลที่มีแต่ตัวเลขใน HTML และหัวเรื่องสั้น ๆ มักถูก Gmail กรองเป็นสแปม)
+  await transporter.sendMail({
+    from: { name: "FOUND&LOST มหาวิทยาลัยเกษตรศาสตร์", address: mailUser },
+    to: normalizedEmail,
+    subject: `รหัสเข้าสู่ระบบ FOUND&LOST ของคุณคือ ${otp}`,
+    text: [
+      "สวัสดีครับ/ค่ะ",
+      "",
+      `รหัสสำหรับเข้าสู่ระบบ FOUND&LOST ของคุณคือ ${otp}`,
+      "รหัสนี้ใช้ได้ภายใน 5 นาที และใช้ได้ครั้งเดียว",
+      "",
+      "หากคุณไม่ได้ขอรหัสนี้ ไม่ต้องทำอะไร บัญชีของคุณยังปลอดภัย",
+      "",
+      "FOUND&LOST ระบบแจ้งของหาย-ของพบ มหาวิทยาลัยเกษตรศาสตร์",
+    ].join("\n"),
+    html: `
+      <div style="font-family:Tahoma,Arial,sans-serif;max-width:480px;margin:0 auto;color:#1e293b">
+        <h2 style="color:#006664;margin-bottom:4px">FOUND&amp;LOST</h2>
+        <p style="margin-top:0;color:#64748b">ระบบแจ้งของหาย-ของพบ มหาวิทยาลัยเกษตรศาสตร์</p>
+        <p>สวัสดีครับ/ค่ะ</p>
+        <p>รหัสสำหรับเข้าสู่ระบบของคุณคือ</p>
+        <p style="font-size:32px;font-weight:bold;letter-spacing:8px;color:#006664;margin:16px 0">${otp}</p>
+        <p>รหัสนี้ใช้ได้ภายใน 5 นาที และใช้ได้ครั้งเดียว</p>
+        <p style="color:#64748b;font-size:13px">หากคุณไม่ได้ขอรหัสนี้ ไม่ต้องทำอะไร บัญชีของคุณยังปลอดภัย</p>
+      </div>
+    `
+  });
+
+  return { sent: true };
+}
+
+// ส่ง OTP ให้ผู้ใช้ที่ลงทะเบียนไว้
 app.post("/api/send-otp", async (req, res) => {
   try {
     const { email } = req.body;
@@ -200,61 +276,14 @@ app.post("/api/send-otp", async (req, res) => {
       });
     }
 
-    // ป้องกันการขอ OTP ถี่เกินไป
-    const recent = await db.query(
-      `SELECT CEIL(EXTRACT(EPOCH FROM (created_at + $2::interval - NOW())))::int AS wait
-       FROM otp_codes WHERE email = $1 AND created_at > NOW() - $2::interval
-       ORDER BY created_at DESC LIMIT 1`,
-      [normalizedEmail, `${OTP_RESEND_SECONDS} seconds`]
-    );
-    if (recent.rows.length > 0) {
-      const wait = Math.max(1, recent.rows[0].wait);
+    const issued = await issueOtp(normalizedEmail);
+    if (issued.wait) {
       return res.status(429).json({
         success: false,
-        message: `กรุณารอ ${wait} วินาทีก่อนขอรหัส OTP ใหม่`,
-        retry_after: wait
+        message: `กรุณารอ ${issued.wait} วินาทีก่อนขอรหัส OTP ใหม่`,
+        retry_after: issued.wait
       });
     }
-
-    // สร้าง OTP 6 หลัก และแทนที่ OTP เดิมของอีเมลนี้
-    const otp = Math.floor(100000 + Math.random() * 900000).toString();
-
-    await db.query("DELETE FROM otp_codes WHERE email = $1", [normalizedEmail]);
-    await db.query(
-      `INSERT INTO otp_codes (email, otp, expires_at)
-       VALUES ($1, $2, NOW() + INTERVAL '5 minutes')`,
-      [normalizedEmail, otp]
-    );
-
-    // ส่ง OTP หลังจากบันทึกลงฐานข้อมูลพร้อมกำหนดอายุ 5 นาที
-    // อีเมลมีชื่อผู้ส่ง หัวเรื่องภาษาไทย และเนื้อหาแบบข้อความธรรมดาคู่กับ HTML
-    // (อีเมลที่มีแต่ตัวเลขใน HTML และหัวเรื่องสั้น ๆ มักถูก Gmail กรองเป็นสแปม)
-    await transporter.sendMail({
-      from: { name: "FOUND&LOST มหาวิทยาลัยเกษตรศาสตร์", address: mailUser },
-      to: normalizedEmail,
-      subject: `รหัสเข้าสู่ระบบ FOUND&LOST ของคุณคือ ${otp}`,
-      text: [
-        "สวัสดีครับ/ค่ะ",
-        "",
-        `รหัสสำหรับเข้าสู่ระบบ FOUND&LOST ของคุณคือ ${otp}`,
-        "รหัสนี้ใช้ได้ภายใน 5 นาที และใช้ได้ครั้งเดียว",
-        "",
-        "หากคุณไม่ได้ขอรหัสนี้ ไม่ต้องทำอะไร บัญชีของคุณยังปลอดภัย",
-        "",
-        "FOUND&LOST ระบบแจ้งของหาย-ของพบ มหาวิทยาลัยเกษตรศาสตร์",
-      ].join("\n"),
-      html: `
-        <div style="font-family:Tahoma,Arial,sans-serif;max-width:480px;margin:0 auto;color:#1e293b">
-          <h2 style="color:#006664;margin-bottom:4px">FOUND&amp;LOST</h2>
-          <p style="margin-top:0;color:#64748b">ระบบแจ้งของหาย-ของพบ มหาวิทยาลัยเกษตรศาสตร์</p>
-          <p>สวัสดีครับ/ค่ะ</p>
-          <p>รหัสสำหรับเข้าสู่ระบบของคุณคือ</p>
-          <p style="font-size:32px;font-weight:bold;letter-spacing:8px;color:#006664;margin:16px 0">${otp}</p>
-          <p>รหัสนี้ใช้ได้ภายใน 5 นาที และใช้ได้ครั้งเดียว</p>
-          <p style="color:#64748b;font-size:13px">หากคุณไม่ได้ขอรหัสนี้ ไม่ต้องทำอะไร บัญชีของคุณยังปลอดภัย</p>
-        </div>
-      `
-    });
 
     return res.status(200).json({
       success: true,
@@ -271,6 +300,10 @@ app.post("/api/send-otp", async (req, res) => {
   }
 });
 
+
+// เข้าสู่ระบบ/สมัครสมาชิกด้วย Google (ต้องตั้ง GOOGLE_CLIENT_ID ใน .env)
+// ขั้นที่ 1 ยืนยันตัวตนกับ Google → ขั้นที่ 2 ส่ง OTP ไปที่อีเมล Google แล้วยืนยันที่ /api/verify-otp
+app.post("/api/auth/google", createGoogleLogin({ issueOtp, mailConfigured: () => Boolean(transporter) }));
 
 // ตรวจสอบ OTP และลบทันทีเมื่อยืนยันสำเร็จ
 app.post("/api/verify-otp", async (req, res) => {
@@ -480,6 +513,8 @@ app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec))
 
 const startServer = async () => {
   try {
+    // ตารางหลัก (รันซ้ำได้ทุกครั้ง เพราะใช้ IF NOT EXISTS ทั้งไฟล์) — ฐานข้อมูลใหม่บน server จึงไม่ต้องรัน database.sql เอง
+    await db.query(require("fs").readFileSync(path.join(__dirname, "database.sql"), "utf8"));
     // ตรวจสอบและสร้างตาราง OTP หากยังไม่มีตอนเริ่ม backend
     await db.query(`
       CREATE TABLE IF NOT EXISTS otp_codes (
@@ -550,6 +585,10 @@ const startServer = async () => {
     await db.query(require("fs").readFileSync(path.join(__dirname, "sql", "features.sql"), "utf8"));
     // ระบบ LINE Bot: เชื่อมบัญชี, ประวัติการแจ้งเตือน, กันแจ้งเตือนซ้ำ
     await db.query(require("fs").readFileSync(path.join(__dirname, "sql", "line.sql"), "utf8"));
+    // ประวัติการดำเนินการของแอดมิน (เพิ่มได้อย่างเดียว)
+    await db.query(require("fs").readFileSync(path.join(__dirname, "sql", "audit.sql"), "utf8"));
+    // ค่าระบบที่แอดมินปรับได้
+    await db.query(require("fs").readFileSync(path.join(__dirname, "sql", "settings.sql"), "utf8"));
 
     // สร้างบัญชีแอดมินเริ่มต้นครั้งแรกที่ยังไม่มี (ไม่เขียนทับรหัสผ่านที่เปลี่ยนภายหลัง)
     if (process.env.ADMIN_SEED_EMAIL && process.env.ADMIN_SEED_PASSWORD) {

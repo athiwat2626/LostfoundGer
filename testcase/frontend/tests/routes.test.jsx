@@ -1,32 +1,46 @@
-// FE-RT-xx : ProtectedRoute (ผู้ใช้) และ AdminProtectedRoute (แอดมิน)
+// FE-RT-xx : ProtectedRoute (ผู้ใช้ — ต้องมี token จากการยืนยัน OTP ที่ยังไม่หมดอายุ) และ AdminProtectedRoute (แอดมิน)
 import { screen } from "@testing-library/react";
 import ProtectedRoute from "@app/page/ProtectedRoute";
 import AdminProtectedRoute from "@app/admin/AdminProtectedRoute";
-import { renderAt } from "./utils";
+import { hasValidUserSession } from "@app/component/session";
+import { renderAt, fakeJwt } from "./utils";
 
 describe("ProtectedRoute", () => {
-  test("FE-RT-01 ยังไม่ login → แจ้งเตือนและพาไป /login พร้อมข้อความ", () => {
-    const alert = vi.spyOn(window, "alert").mockImplementation(() => {});
-    renderAt(<ProtectedRoute><p>หน้าลับ</p></ProtectedRoute>, { path: "/home" });
+  test("FE-RT-01 ยังไม่ login → พาไป /login พร้อมข้อความ และจำหน้าที่จะเปิด", () => {
+    renderAt(<ProtectedRoute><p>หน้าลับ</p></ProtectedRoute>, { path: "/my-posts", route: "/my-posts?tab=lost" });
 
-    expect(alert).toHaveBeenCalledWith("ยังไม่ได้เข้าสู่ระบบ กรุณาเข้าสู่ระบบก่อนเข้าใช้งาน");
     expect(screen.queryByText("หน้าลับ")).not.toBeInTheDocument();
     expect(screen.getByTestId("pathname")).toHaveTextContent("/login");
-    expect(screen.getByTestId("location-state")).toHaveTextContent("ยังไม่ได้เข้าสู่ระบบ");
+    const state = JSON.parse(screen.getByTestId("location-state").textContent);
+    expect(state).toEqual({ message: "กรุณาเข้าสู่ระบบก่อนเข้าใช้งาน", from: "/my-posts?tab=lost" });
   });
 
-  test("FE-RT-02 login แล้ว (isLoggedIn=true) → แสดงเนื้อหา", () => {
-    localStorage.setItem("isLoggedIn", "true");
+  test("FE-RT-02 มี token ผู้ใช้ที่ยังไม่หมดอายุ → แสดงเนื้อหา", () => {
+    localStorage.setItem("userToken", fakeJwt({ exp: Math.floor(Date.now() / 1000) + 3600 }));
     renderAt(<ProtectedRoute><p>หน้าลับ</p></ProtectedRoute>, { path: "/home" });
     expect(screen.getByText("หน้าลับ")).toBeInTheDocument();
     expect(screen.getByTestId("pathname")).toHaveTextContent("/home");
   });
 
-  test("FE-RT-03 ค่า isLoggedIn ไม่ใช่ 'true' → ถือว่ายังไม่ login", () => {
-    vi.spyOn(window, "alert").mockImplementation(() => {});
-    localStorage.setItem("isLoggedIn", "yes");
+  test("FE-RT-03 มีแค่ isLoggedIn=true แต่ไม่มี token → ถือว่ายังไม่ login", () => {
+    localStorage.setItem("isLoggedIn", "true");
     renderAt(<ProtectedRoute><p>หน้าลับ</p></ProtectedRoute>, { path: "/home" });
     expect(screen.getByTestId("pathname")).toHaveTextContent("/login");
+  });
+
+  test("FE-RT-06 token หมดอายุ → ล้าง session แล้วพาไป /login", () => {
+    localStorage.setItem("userToken", fakeJwt({ exp: Math.floor(Date.now() / 1000) - 60 }));
+    localStorage.setItem("isLoggedIn", "true");
+    localStorage.setItem("email", "a@ku.th");
+    renderAt(<ProtectedRoute><p>หน้าลับ</p></ProtectedRoute>, { path: "/home" });
+    expect(screen.getByTestId("pathname")).toHaveTextContent("/login");
+    expect(localStorage.getItem("userToken")).toBeNull();
+    expect(localStorage.getItem("email")).toBeNull();
+  });
+
+  test("FE-RT-07 token รูปแบบเสีย → hasValidUserSession = false", () => {
+    localStorage.setItem("userToken", "not-a-jwt");
+    expect(hasValidUserSession()).toBe(false);
   });
 });
 

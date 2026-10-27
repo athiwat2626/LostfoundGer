@@ -1,0 +1,85 @@
+# Production stack ของ FOUND&LOST สำหรับ VPS (แยกจาก docker-compose.yml ที่ใช้ตอนพัฒนา)
+#
+# ไฟล์ที่ต้องมีข้างไฟล์นี้บน VPS (ห้าม commit ค่าจริง):
+#   .env         ← จาก deploy/.env.deploy.example (โดเมน, image tag, รหัสผ่าน DB)
+#   backend.env  ← จาก deploy/backend.env.example (JWT, อีเมล, LINE, Google)
+#
+# ใช้งาน:   docker compose -f compose.deploy.yml up -d
+# ห้ามใช้  docker compose ... down -v  (จะลบฐานข้อมูลและรูปที่อัปโหลดทั้งหมด)
+name: foundlost
+
+services:
+  db:
+    image: postgres:16
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-foundlost_db}
+      POSTGRES_USER: ${POSTGRES_USER:-foundlost}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?ต้องตั้ง POSTGRES_PASSWORD ใน .env}
+    volumes:
+      - pg_data:/var/lib/postgresql/data
+    networks: [data]
+    # ไม่มี ports: — เข้าถึงได้จาก backend ใน network ภายในเท่านั้น
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  backend:
+    image: ${BACKEND_IMAGE:?ต้องตั้ง BACKEND_IMAGE ใน .env}
+    restart: unless-stopped
+    env_file: ./backend.env
+    environment:
+      # ค่าฐานข้อมูลมาจาก .env ชุดเดียวกับ db (เขียนทับค่าใน backend.env ถ้ามี)
+      DB_HOST: db
+      DB_PORT: "5432"
+      DB_NAME: ${POSTGRES_DB:-foundlost_db}
+      DB_USER: ${POSTGRES_USER:-foundlost}
+      DB_PASSWORD: ${POSTGRES_PASSWORD:?ต้องตั้ง POSTGRES_PASSWORD ใน .env}
+      PORT: "3000"
+      NODE_ENV: production
+    volumes:
+      - found_uploads:/app/assets/foundUploads
+      - lost_uploads:/app/assets/lostUploads
+      - profile_uploads:/app/assets/profileUploads
+      - report_uploads:/app/assets/reportUploads
+    # data = คุยกับ db, edge = ให้ Caddy เรียกได้และออกอินเทอร์เน็ต (LINE, Gmail, Google)
+    networks: [data, edge]
+    # ไม่มี ports: — ออกสู่ภายนอกผ่าน Caddy (/backend/*) เท่านั้น
+    depends_on:
+      db:
+        condition: service_healthy
+
+  web:
+    image: ${WEB_IMAGE:?ต้องตั้ง WEB_IMAGE ใน .env}
+    restart: unless-stopped
+    environment:
+      APP_DOMAIN: ${APP_DOMAIN:?ต้องตั้ง APP_DOMAIN ใน .env}
+      ACME_EMAIL: ${ACME_EMAIL:?ต้องตั้ง ACME_EMAIL ใน .env}
+    ports:
+      - "${HTTP_PORT:-80}:80"
+      - "${HTTPS_PORT:-443}:443"
+      - "${HTTPS_PORT:-443}:443/udp"
+    volumes:
+      # ใบรับรอง HTTPS — ต้องเก็บไว้ ไม่งั้นจะขอใบใหม่ทุกครั้งจนติด rate limit
+      - caddy_data:/data
+      - caddy_config:/config
+    networks: [edge]
+    depends_on:
+      backend:
+        condition: service_healthy
+
+networks:
+  data:
+    internal: true
+  edge: {}
+
+volumes:
+  pg_data:
+  found_uploads:
+  lost_uploads:
+  profile_uploads:
+  report_uploads:
+  caddy_data:
+  caddy_config:

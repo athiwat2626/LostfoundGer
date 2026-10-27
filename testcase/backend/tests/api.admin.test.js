@@ -1,6 +1,6 @@
 // ADM-xx : /admin/* (ต้องใช้ token แอดมิน) — dashboard, reports, users, items
 const request = require("supertest");
-const { backendPath, loadApp, routeQueries, findQuery, adminToken } = require("./helpers");
+const { backendPath, loadApp, routeQueries, findQuery, adminToken, useTransactionClient } = require("./helpers");
 
 jest.mock("../../../FOUNDLOST/backend/db", () => ({ query: jest.fn(), connect: jest.fn() }));
 jest.mock("../../../FOUNDLOST/backend/services/lineNotification", () => ({ sendLineNotification: jest.fn() }));
@@ -17,7 +17,7 @@ beforeAll(async () => {
 
 beforeEach(() => {
   db.query.mockReset();
-  db.connect.mockReset();
+  useTransactionClient(db);
   routeQueries(db.query, [[/COUNT\(\*\)/, { rows: [{ count: 0 }] }]]);
 });
 
@@ -43,6 +43,9 @@ describe("ADM การป้องกันสิทธิ์", () => {
 describe("ADM Dashboard / Activity", () => {
   test("ADM-02 GET /admin/dashboard/stats → รวมตัวเลขทุกหมวด", async () => {
     const counts = [
+      // แบบเจาะจงต้องอยู่ก่อน เพราะ SQL ยอดโพสต์เดือนนี้มีทั้ง FROM found_items และ FROM lost_items
+      [/date_trunc\('month'/, 7], [/INTERVAL '48 hours'/, 5], [/INTERVAL '24 hours'/, 6],
+      [/SUM\(successful_returns\)/, 12], [/reason = ANY/, 2],
       [/FROM users$/, 120], [/FROM found_items/, 40], [/FROM lost_items/, 55],
       [/status = 'pending'/, 3], [/status = 'under_review'/, 2], [/status = 'resolved'/, 9],
       [/suspended_until > NOW/, 4], [/is_banned = true/, 1],
@@ -54,7 +57,10 @@ describe("ADM Dashboard / Activity", () => {
     expect(res.body.stats).toEqual({
       totalUsers: 120, totalFoundItems: 40, totalLostItems: 55, pendingReports: 3,
       underReviewReports: 2, resolvedReports: 9, suspendedUsers: 4, bannedUsers: 1,
+      postsThisMonth: 7, newUsers24h: 6, newUsersPrev24h: 5, successfulReturns: 12, flaggedContent: 2,
     });
+    // เนื้อหาที่ถูกรายงาน: นับเฉพาะเหตุผลด้านเนื้อหา
+    expect(findQuery(db.query, /reason = ANY/)[1][0]).toContain("สแปม");
   });
 
   test("ADM-03 GET /admin/activity?limit=500 → จำกัดไม่เกิน 100", async () => {
@@ -110,7 +116,7 @@ describe("ADM Reports", () => {
     expect(res.status).toBe(200);
     expect(res.body.report.status).toBe("under_review");
     expect(findQuery(db.query, /UPDATE reports SET status = 'under_review'/)[1]).toEqual(["RPT-1"]);
-    expect(res.body.report.timeline.map((t) => t.label)).toEqual(["Report submitted", "Assigned to review"]);
+    expect(res.body.report.timeline.map((t) => t.label)).toEqual(["ส่งรายงาน", "เริ่มตรวจสอบ"]);
   });
 
   test("ADM-10 รายงานที่ดำเนินการแล้ว → timeline แสดงผู้ดำเนินการ ไม่เปลี่ยนสถานะ", async () => {
@@ -120,7 +126,7 @@ describe("ADM Reports", () => {
     const res = await request(app).get("/admin/reports/RPT-1").set(auth());
 
     expect(findQuery(db.query, /UPDATE reports/)).toBeUndefined();
-    expect(res.body.report.timeline[1].label).toBe("Action taken: ban by admin@ku.th");
+    expect(res.body.report.timeline[1].label).toBe("ดำเนินการ: แบนถาวร โดย admin@ku.th");
   });
 });
 
@@ -231,10 +237,16 @@ describe("ADM Users", () => {
     ["unsuspend", {}, /suspended_until = NULL/],
     ["unban", {}, /is_banned = false/],
   ])("ADM-22 POST /admin/users/:id/action action=%s → อัปเดตถูกคอลัมน์", async (action, extra, pattern) => {
-    routeQueries(db.query, [[/UPDATE users/, { rows: [{ student_id: "641" }] }]]);
+    routeQueries(db.query, [
+      [/FOR UPDATE/, { rows: [{ warning_count: 0, suspended_until: null, is_banned: false }] }],
+      [/UPDATE users/, { rows: [{ student_id: "641", warning_count: 1, suspended_until: null, is_banned: action === "ban" }] }],
+    ]);
     const res = await request(app).post("/admin/users/641/action").set(auth()).send({ action, ...extra });
     expect(res.status).toBe(200);
     expect(findQuery(db.query, pattern)).toBeDefined();
+    // บันทึกประวัติการดำเนินการใน transaction เดียวกัน
+    expect(findQuery(db.query, /INSERT INTO admin_audit_logs/)[1][2]).toBe(`user.${action}`);
+    expect(findQuery(db.query, /^COMMIT$/)).toBeDefined();
   });
 
   test("ADM-23 action ไม่ถูกต้อง → 400", async () => {
@@ -270,7 +282,10 @@ describe("ADM Items", () => {
   });
 
   test("ADM-28 PATCH /admin/items/found/1 ข้อมูลถูกต้อง → 200", async () => {
-    routeQueries(db.query, [[/UPDATE found_items/, { rows: [{ item_id: 1, item_name: "ร่ม" }] }]]);
+    routeQueries(db.query, [
+      [/SELECT \* FROM found_items WHERE item_id = \$1 FOR UPDATE/, { rows: [{ item_id: 1, item_name: "ร่มเก่า" }] }],
+      [/UPDATE found_items/, { rows: [{ item_id: 1, item_name: "ร่ม" }] }],
+    ]);
     const res = await request(app).patch("/admin/items/found/1").set(auth()).send(validFound);
     expect(res.status).toBe(200);
     const [sql, params] = findQuery(db.query, /UPDATE found_items/);

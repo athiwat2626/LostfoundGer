@@ -23,7 +23,7 @@
 /* การ์ดมาตรฐาน: พื้นขาว มุมโค้ง เส้นขอบบาง เงาเบา */
 @utility card {
   background-color: var(--color-surface);
-  border: 1px solid rgb(241 245 249);
+  border: 1px solid var(--color-slate-100);
   border-radius: var(--radius-card);
   box-shadow: var(--shadow-card);
 }
@@ -93,4 +93,91 @@
 }
 @utility gradient-found {
   background-image: linear-gradient(135deg, #2cc5b4 0%, #0f9994 50%, #0b716d 100%);
+}
+
+/* ── โหมดมืด (ตั้งค่า → การแสดงผล) ───────────────────────────────────────────
+   สลับค่าตัวแปรสีของ Tailwind ภายในหน้าฝั่งผู้ใช้ (.user-app) แทนการเติม dark: ทุกคลาส
+   slate กลับด้าน (เข้ม ↔ อ่อน), สีพื้นอ่อนของสถานะเป็นโทนเข้ม, สีตัวอักษรสถานะสว่างขึ้นให้อ่านง่ายบนพื้นมืด */
+html[data-theme="dark"] {
+  background-color: #0d1414;
+}
+html[data-theme="dark"] .user-app {
+  color-scheme: dark;
+  --color-surface: #152020;
+  --color-canvas: #0d1414;
+  --shadow-card: 0 1px 2px rgba(0, 0, 0, 0.4), 0 6px 18px -8px rgba(0, 0, 0, 0.6);
+  --shadow-float: 0 -4px 24px -8px rgba(0, 0, 0, 0.7);
+
+  --color-slate-50: #1b2626;
+  --color-slate-100: #223030;
+  --color-slate-200: #2d3d3d;
+  --color-slate-300: #415252;
+  --color-slate-400: #7d8c8c;
+  --color-slate-500: #9aa8a8;
+  --color-slate-600: #b5c1c1;
+  --color-slate-700: #ccd5d5;
+  --color-slate-800: #e0e7e7;
+  --color-slate-900: #eff4f4;
+
+  --color-brand: #1f9d93;
+  --color-brand-dark: #7fd6cd;
+  --color-brand-soft: #2c5f5b;
+  --color-brand-50: #12302e;
+
+  --color-red-50: #3a1618;
+  --color-red-100: #4a1c1f;
+  --color-red-200: #6b2a2e;
+  --color-red-600: #f38b8b;
+  --color-red-700: #f7a8a8;
+  --color-amber-50: #33270f;
+  --color-amber-100: #45330f;
+  --color-amber-200: #5c4513;
+  --color-amber-600: #f2b544;
+  --color-amber-700: #f6c868;
+  --color-sky-50: #0f2a38;
+  --color-sky-100: #12374a;
+  --color-sky-200: #1b4b63;
+  --color-sky-600: #63c3f0;
+  --color-sky-700: #8bd3f5;
+  --color-orange-50: #3a2412;
+  --color-orange-200: #5e3818;
+  --color-orange-600: #f6a066;
+  --color-orange-700: #f9b07f;
+  --color-green-50: #11301c;
+  --color-green-600: #4ade80;
+  --color-green-700: #74e8a0;
+  --color-emerald-50: #0f2f25;
+  --color-emerald-200: #1d5040;
+  --color-emerald-700: #63e0b2;
+  --color-teal-50: #0f2f2c;
+  --color-teal-600: #3cc9b9;
+  --color-violet-100: #2b2145;
+  --color-violet-700: #c4b5fd;
+  --color-rose-100: #3d1820;
+  --color-rose-700: #fda4af;
+}
+/* พื้นขาว (bg-white) ใช้ตัวแปรเดียวกับ text-white จึงสลับเฉพาะพื้นหลัง — สีขาวโปร่งบนพื้นไล่สีคงเดิม */
+html[data-theme="dark"] .user-app .bg-white,
+html[data-theme="dark"] .user-app .bg-white\/95,
+html[data-theme="dark"] .user-app .bg-white\/90,
+html[data-theme="dark"] .user-app .bg-white\/80,
+html[data-theme="dark"] .user-app .hover\:bg-white:hover,
+html[data-theme="dark"] .user-app .focus\:bg-white:focus {
+  background-color: var(--color-surface);
+}
+/* ฉากหลังป๊อปอัพต้องมืดเสมอ (slate-900 ถูกสลับเป็นสีอ่อนในโหมดมืด) */
+html[data-theme="dark"] .user-app .bg-slate-900\/40 {
+  background-color: rgb(0 0 0 / 0.6);
+}
+html[data-theme="dark"] .user-app .ring-white {
+  --tw-ring-color: var(--color-surface);
+}
+html[data-theme="dark"] .user-app .border-white {
+  border-color: var(--color-surface);
+}
+html[data-theme="dark"] .user-app.gradient-app {
+  background-color: var(--color-canvas);
+  background-image:
+    radial-gradient(1100px 520px at 100% -8%, rgba(20, 163, 154, 0.1), transparent 60%),
+    radial-gradient(900px 480px at -8% 108%, rgba(56, 189, 248, 0.06), transparent 60%);
 }

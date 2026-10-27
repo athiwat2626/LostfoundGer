@@ -2,7 +2,7 @@
 // ช่องทาง: กล่องแจ้งเตือนในเว็บ (กระดิ่ง) + อีเมล + LINE (เมื่อผู้ใช้เชื่อมบัญชีและเปิดรับแจ้งเตือน)
 // คู่ของหาย ↔ ของพบ เดิมจะถูกแจ้งเพียงครั้งเดียว (บันทึกใน match_notifications)
 
-// แจ้งเจ้าของโพสต์ของหายเฉพาะคู่ที่คะแนนสูงพอ เพื่อไม่ให้แจ้งเตือนถี่เกินไป
+// แจ้งเจ้าของโพสต์ของหายเฉพาะคู่ที่คะแนนสูงพอ (ค่าเริ่มต้น — แอดมินปรับได้ในหน้าตั้งค่า)
 const NOTIFY_MIN_SCORE = 60;
 
 const myPostLink = (lostItemId) => `/my-posts?type=lost&item=${lostItemId}&panel=matches`;
@@ -10,7 +10,7 @@ const myPostLink = (lostItemId) => `/my-posts?type=lost&item=${lostItemId}&panel
 /**
  * @param {{ findMatches, notify, repo, lineDelivery, logger?: Console }} deps
  */
-const createMatchNotifier = ({ findMatches, notify, repo, lineDelivery, logger = console }) => {
+const createMatchNotifier = ({ findMatches, notify, repo, lineDelivery, logger = console, getMinScore = async () => NOTIFY_MIN_SCORE }) => {
   // แปลงผลการจับคู่เป็นคู่ (ของหาย, ของพบ, ผู้รับแจ้งเตือน = เจ้าของของหาย)
   const toPairs = (type, item, matches) => {
     if (type === "lost") {
@@ -44,7 +44,7 @@ const createMatchNotifier = ({ findMatches, notify, repo, lineDelivery, logger =
    */
   const notifyNewItemMatches = async (type, item) => {
     try {
-      const matches = await findMatches(type, item, { limit: 10, minScore: NOTIFY_MIN_SCORE });
+      const matches = await findMatches(type, item, { limit: 10, minScore: await getMinScore() });
       if (matches.length === 0) return { notified: 0 };
 
       const pairs = toPairs(type, item, matches);
@@ -108,7 +108,14 @@ const notifyNewItemMatches = (type, item) => {
     const { findMatches } = require("./matching");
     const { notify } = require("./notify");
     const line = require("./line");
-    defaultNotifier = createMatchNotifier({ findMatches, notify, repo: line.repo, lineDelivery: line.matchDelivery });
+    const { getSettingSafe } = require("./settings");
+    defaultNotifier = createMatchNotifier({
+      findMatches,
+      notify,
+      repo: line.repo,
+      lineDelivery: line.matchDelivery,
+      getMinScore: () => getSettingSafe("match_min_score"),
+    });
   }
   return defaultNotifier.notifyNewItemMatches(type, item);
 };

@@ -17,10 +17,10 @@ import UserLayout from "../component/UserLayout";
 import userApi from "../component/userApi";
 import ConfirmDialog from "../component/ConfirmDialog";
 import TypeTabs from "../component/TypeTabs";
+import { useSiteSettings } from "../component/siteSettings";
 import { API_URL, formatThaiDate, reportState } from "../component/itemUtils";
 import { ContactCard, ItemDetailModal } from "../component/itemUi";
 
-const CATEGORY_OPTIONS = ["กระเป๋า", "กุญแจ", "อุปกรณ์อิเล็กทรอนิกส์", "เครื่องประดับ", "เอกสาร", "อื่น ๆ"];
 const FIELDS = {
   found: { date: "found_date", location: "found_location", dateLabel: "วันที่พบ", locationLabel: "สถานที่พบ" },
   lost: { date: "lost_date", location: "lost_location", dateLabel: "วันที่หาย", locationLabel: "สถานที่หาย" },
@@ -211,6 +211,9 @@ const MatchesPanel = ({ item, onOpen }) => {
 // ─── แก้ไขโพสต์ ────────────────────────────────────────────────────────────────
 const EditModal = ({ item, onClose, onSaved }) => {
   const f = FIELDS[item.type];
+  const { categoryNames } = useSiteSettings();
+  // หมวดเดิมของโพสต์ที่แอดมินลบออกจากรายการแล้ว ยังเลือกค้างไว้ได้
+  const categoryOptions = !item.category || categoryNames.includes(item.category) ? categoryNames : [...categoryNames, item.category];
   const [form, setForm] = useState({
     item_name: item.item_name || "",
     category: item.category || "",
@@ -270,7 +273,7 @@ const EditModal = ({ item, onClose, onSaved }) => {
             หมวดหมู่
             <select value={form.category} onChange={(e) => setField("category", e.target.value)} className={`${inputClass} mt-1.5`}>
               <option value="">ไม่ระบุ</option>
-              {CATEGORY_OPTIONS.map((c) => (
+              {categoryOptions.map((c) => (
                 <option key={c} value={c}>{c}</option>
               ))}
             </select>
@@ -640,7 +643,7 @@ const MyPosts = () => {
             {items.filter((item) => typeTab === "all" || item.type === typeTab).length === 0 && (
               <div className={`${cardClass} py-10 text-center text-sm text-slate-400`}>ไม่มีโพสต์ประเภทนี้</div>
             )}
-            <div className="grid gap-3 sm:gap-4 lg:grid-cols-2">
+            <div className="grid grid-cols-[minmax(0,1fr)] gap-3 sm:gap-4 lg:grid-cols-2">
               {items.filter((item) => typeTab === "all" || item.type === typeTab).map((item) => (
                 <MyPostCard
                   key={`${item.type}-${item.item_id}`}
@@ -663,7 +666,7 @@ const MyPosts = () => {
               <Link to="/home" className="font-semibold text-brand hover:underline">ดูรายการทั้งหมด</Link>
             </div>
           ) : (
-            <div className="grid gap-4 lg:grid-cols-2">
+            <div className="grid grid-cols-[minmax(0,1fr)] gap-4 lg:grid-cols-2">
               {claims.map((claim) => (
                 <MyClaimCard key={claim.claim_id} claim={claim} onChanged={load} />
               ))}

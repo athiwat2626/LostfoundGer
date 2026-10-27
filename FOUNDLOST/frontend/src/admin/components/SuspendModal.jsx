@@ -1,16 +1,31 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { UserX } from "lucide-react";
+import adminApi from "../api/adminApi";
 
-const DURATIONS = [
-  { label: "3 วัน", value: 3 },
-  { label: "7 วัน", value: 7 },
-  { label: "30 วัน", value: 30 },
-  { label: "ถาวร (แบน)", value: "permanent" },
-];
+// ตัวเลือกจำนวนวันมาจากค่าระบบ (ตั้งค่า → ค่าระบบ) — โหลดไม่ได้ใช้ค่าเดิม 3/7/30
+const DEFAULT_DAYS = [3, 7, 30];
+const toOptions = (days) => [...days.map((d) => ({ label: `${d} วัน`, value: d })), { label: "ถาวร (แบน)", value: "permanent" }];
 
 // รับ onConfirm({ action, duration_days }) — Permanent จะแปลงเป็น action "ban" ให้เอง
 const SuspendModal = ({ userLabel, onConfirm, onCancel, submitting }) => {
-  const [selected, setSelected] = useState(3);
+  const [durations, setDurations] = useState(() => toOptions(DEFAULT_DAYS));
+  const [selected, setSelected] = useState(DEFAULT_DAYS[0]);
+
+  useEffect(() => {
+    let cancelled = false;
+    adminApi
+      .get("/admin/settings")
+      .then((res) => {
+        const days = res.data.settings?.suspend_durations;
+        if (cancelled || !Array.isArray(days) || days.length === 0) return;
+        setDurations(toOptions(days));
+        setSelected(days[0]);
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const handleConfirm = () => {
     if (selected === "permanent") {
@@ -33,7 +48,7 @@ const SuspendModal = ({ userLabel, onConfirm, onCancel, submitting }) => {
         </p>
 
         <div className="mt-5 grid grid-cols-2 gap-2">
-          {DURATIONS.map((d) => (
+          {durations.map((d) => (
             <button
               key={d.label}
               type="button"

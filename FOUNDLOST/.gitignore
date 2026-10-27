@@ -26,3 +26,6 @@ database-backup.sql
 *.njsproj
 *.sln
 *.sw?
+
+# ไฟล์ค่าจริงบน VPS (compose.deploy.yml)
+backend.env

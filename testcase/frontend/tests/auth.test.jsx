@@ -17,6 +17,8 @@ const apiError = (status, data) => Object.assign(new Error("Request failed"), { 
 
 beforeEach(() => {
   axios.post.mockReset();
+  // ค่าระบบสาธารณะ (หมวดหมู่, Google Client ID) — โหลดไม่ได้ = ใช้ค่าเริ่มต้น ไม่มีปุ่ม Google
+  axios.get.mockReset().mockRejectedValue(new Error("offline"));
   adminApi.post.mockReset();
 });
 
@@ -129,9 +131,10 @@ describe("Login (OTP)", () => {
     expect(axios.post).toHaveBeenLastCalledWith("http://localhost:3000/api/send-otp", { email: "somchai@ku.th" });
   });
 
-  test("FE-LG-11 ไม่มีตัวเลือกเข้าสู่ระบบด้วย Google", () => {
+  // ปุ่ม Google แสดงเมื่อตั้ง GOOGLE_CLIENT_ID แล้วเท่านั้น (ทดสอบแบบมีปุ่มใน googleSignIn.test.jsx)
+  test("FE-LG-11 ยังไม่ได้ตั้งค่า Google Sign-In → ไม่มีปุ่ม Google", () => {
     renderAt(<Login />, { path: "/login" });
-    expect(screen.queryByText("หรือเข้าสู่ระบบด้วย")).not.toBeInTheDocument();
+    expect(screen.queryByText("หรือ")).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /Google/ })).not.toBeInTheDocument();
   });
 
@@ -196,9 +199,9 @@ describe("SignUp", () => {
     expect(screen.getByPlaceholderText("ชื่อ")).toHaveAttribute("maxLength", "100");
   });
 
-  test("FE-SU-04 ปุ่ม 'เข้าสู่ระบบ' → ไป /login", () => {
+  test("FE-SU-04 ลิงก์ 'เข้าสู่ระบบ' → ไป /login", () => {
     renderAt(<SignUp />, { path: "/signup" });
-    fireEvent.click(screen.getByRole("button", { name: "เข้าสู่ระบบ" }));
+    fireEvent.click(screen.getByRole("link", { name: "เข้าสู่ระบบ" }));
     expect(screen.getByTestId("pathname")).toHaveTextContent("/login");
   });
 });
@@ -234,17 +237,17 @@ describe("AdminLogin", () => {
     expect(localStorage.getItem("adminToken")).toBeNull();
   });
 
-  test("FE-AL-03 ลิงก์ 'กลับหน้าเข้าสู่ระบบผู้ใช้' → ไป /login", () => {
+  test("FE-AL-03 ลิงก์ 'กลับสู่หน้าหลัก' → ไป /login", () => {
     renderAt(<AdminLogin />, { path: "/admin/login" });
-    fireEvent.click(screen.getByRole("link", { name: /กลับหน้าเข้าสู่ระบบผู้ใช้/ }));
+    fireEvent.click(screen.getByRole("link", { name: /กลับสู่หน้าหลัก/ }));
     expect(screen.getByTestId("pathname")).toHaveTextContent("/login");
   });
 
-  test("FE-AL-04 แสดงโลโก้ หัวข้อ 'KU Lost & Found' และ 'Administrative Portal' ตามดีไซน์", () => {
+  test("FE-AL-04 แสดงโลโก้ หัวข้อ 'KU Lost & Found' และช่อง Username/Password ที่จำเป็นต้องกรอก", () => {
     renderAt(<AdminLogin />, { path: "/admin/login" });
     expect(screen.getByAltText("KU FOUND&LOST")).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "KU Lost & Found" })).toBeInTheDocument();
-    expect(screen.getByText("Administrative Portal")).toBeInTheDocument();
+    expect(screen.getByLabelText("Username")).toHaveAttribute("placeholder", "Administrative Email");
     expect(screen.getByLabelText("Username")).toBeRequired();
     expect(screen.getByLabelText("Password")).toBeRequired();
   });

@@ -29,6 +29,8 @@ import AdminReviewCenter from "./admin/pages/ReviewCenter";
 import AdminUsers from "./admin/pages/Users";
 import AdminSettings from "./admin/pages/Settings";
 import AdminMatches from "./admin/pages/Matches";
+import AdminAuditLog from "./admin/pages/AuditLog";
+import MaintenanceGate from "./component/MaintenanceGate";
 
 // หน้าฝั่งผู้ใช้ทุกหน้าใช้ UserLayout (แถบเมนูซ้าย) ภายในตัวหน้าเอง
 const protectedPage = (element) => <ProtectedRoute>{element}</ProtectedRoute>;
@@ -36,6 +38,7 @@ const protectedPage = (element) => <ProtectedRoute>{element}</ProtectedRoute>;
 function App() {
   return (
     <BrowserRouter>
+      <MaintenanceGate>
       <Routes>
         <Route path="/" element={<Loading />} />
         <Route path="/home" element={protectedPage(<Home />)} />
@@ -73,9 +76,11 @@ function App() {
           <Route path="matches" element={<AdminMatches />} />
           <Route path="reports" element={<AdminReviewCenter />} />
           <Route path="users" element={<AdminUsers />} />
+          <Route path="audit" element={<AdminAuditLog />} />
           <Route path="settings" element={<AdminSettings />} />
         </Route>
       </Routes>
+      </MaintenanceGate>
     </BrowserRouter>
   );
 }

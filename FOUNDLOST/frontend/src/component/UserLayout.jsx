@@ -23,6 +23,7 @@ import {
 import ConfirmLogoutModal from "./ConfirmLogoutModal";
 import NotificationBell from "./NotificationBell";
 import BottomNav from "./BottomNav";
+import AnnouncementBanner from "./AnnouncementBanner";
 import { API_URL } from "./itemUtils";
 
 // ─── แถบเมนูด้านซ้าย (แบบเดียวกับฝั่งแอดมิน: จอใหญ่หุบเหลือไอคอนแล้วกางเมื่อเอาเมาส์ชี้ / มือถือเป็น drawer) ───
@@ -234,7 +235,8 @@ const UserLayout = ({ search, children }) => {
   const displayName = profile?.first_name || email.split("@")[0] || "ผู้ใช้";
 
   return (
-    <div className={`min-h-screen gradient-app transition-all duration-300 ${sidebarHovered ? "md:pl-60" : "md:pl-20"}`}>
+    // user-app: ขอบเขตของโหมดมืด (App.css) — หน้าแอดมิน/ล็อกอินไม่ได้รับผล
+    <div className={`user-app min-h-screen gradient-app transition-all duration-300 ${sidebarHovered ? "md:pl-60" : "md:pl-20"}`}>
       {/* จอ md ขึ้นไป: แถบเมนูซ้าย / มือถือ: Bottom Navigation */}
       <SideRail
         onAdd={openReport}
@@ -290,6 +292,8 @@ const UserLayout = ({ search, children }) => {
             )}
           </Link>
         </header>
+
+        <AnnouncementBanner />
 
         {children}
       </div>

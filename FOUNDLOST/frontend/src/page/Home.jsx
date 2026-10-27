@@ -43,7 +43,7 @@ const WelcomeBanner = () => {
             type="button"
             onClick={() => setIndex(i)}
             aria-label={`สไลด์ที่ ${i + 1}`}
-            className={`h-2 rounded-full transition-all ${i === index ? "w-6 bg-white" : "w-2 bg-white/50"}`}
+            className={`h-2 rounded-full transition-all ${i === index ? "w-6 bg-white/100" : "w-2 bg-white/50"}`}
           />
         ))}
       </div>

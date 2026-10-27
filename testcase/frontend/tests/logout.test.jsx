@@ -1,12 +1,14 @@
-// FE-LO-xx : ป๊อปอัพยืนยันการออกจากระบบ (ConfirmLogoutModal) ใน Home, Navbar และ AdminLayout
+// FE-LO-xx : ป๊อปอัพยืนยันการออกจากระบบ (ConfirmLogoutModal) ใน UserLayout (ผู้ใช้) และ AdminLayout (แอดมิน)
 import { fireEvent, render, screen, within } from "@testing-library/react";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import ConfirmLogoutModal from "@app/component/ConfirmLogoutModal";
-import Navbar from "@app/component/Navbar";
+import UserLayout from "@app/component/UserLayout";
+import { mockRoutes } from "./axiosMock";
 import AdminLayout from "@app/admin/AdminLayout";
 import adminApi from "@app/admin/api/adminApi";
-import { LocationProbe, renderAt } from "./utils";
+import { LocationProbe, loginAsUser, renderAt } from "./utils";
 
+vi.mock("axios", () => import("./axiosMock.js"));
 vi.mock("@app/admin/api/adminApi", () => ({ default: { get: vi.fn(), post: vi.fn() } }));
 
 const dialog = () => screen.getByRole("dialog", { name: "ออกจากระบบ?" });
@@ -56,42 +58,30 @@ describe("ConfirmLogoutModal", () => {
   });
 });
 
-describe("Navbar", () => {
+describe("UserLayout (ฝั่งผู้ใช้)", () => {
   beforeEach(() => {
-    localStorage.setItem("isLoggedIn", "true");
-    localStorage.setItem("email", "a@ku.th");
-    localStorage.setItem("student_id", "641");
+    mockRoutes();
+    loginAsUser();
   });
 
-  test("FE-LO-06 กดออกจากระบบแล้วยกเลิก → ยังอยู่หน้าเดิม ข้อมูล login ยังอยู่", () => {
-    renderAt(<Navbar />, { path: "/foundPage" });
+  const renderLayout = async () => {
+    renderAt(<UserLayout><p>เนื้อหา</p></UserLayout>, { path: "/home" });
+    await screen.findByText("เนื้อหา");
     fireEvent.click(screen.getByRole("button", { name: "ออกจากระบบ" }));
+  };
+
+  test("FE-LO-06 กดออกจากระบบแล้วยกเลิก → session ยังอยู่ และอยู่หน้าเดิม", async () => {
+    await renderLayout();
     fireEvent.click(within(dialog()).getByRole("button", { name: "ยกเลิก" }));
-
-    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
-    expect(screen.getByTestId("pathname")).toHaveTextContent("/foundPage");
-    expect(localStorage.getItem("isLoggedIn")).toBe("true");
+    expect(localStorage.getItem("userToken")).not.toBeNull();
+    expect(screen.getByTestId("pathname")).toHaveTextContent("/home");
   });
 
-  test("FE-LO-07 กดออกจากระบบแล้วยืนยัน → ล้าง isLoggedIn/email/student_id และไป /login", () => {
-    renderAt(<Navbar />, { path: "/foundPage" });
-    fireEvent.click(screen.getByRole("button", { name: "ออกจากระบบ" }));
+  test("FE-LO-07 ยืนยันออกจากระบบ → ล้าง token/อีเมล/รหัสนิสิต และไป /login", async () => {
+    await renderLayout();
     fireEvent.click(confirmButton());
-
+    ["userToken", "isLoggedIn", "email", "student_id"].forEach((key) => expect(localStorage.getItem(key)).toBeNull());
     expect(screen.getByTestId("pathname")).toHaveTextContent("/login");
-    expect(localStorage.getItem("isLoggedIn")).toBeNull();
-    expect(localStorage.getItem("email")).toBeNull();
-    expect(localStorage.getItem("student_id")).toBeNull();
-  });
-
-  test("FE-LO-08 เมนูมือถือ: กดออกจากระบบ → ปิดเมนูและแสดงป๊อปอัพยืนยัน", () => {
-    renderAt(<Navbar />, { path: "/foundPage" });
-    fireEvent.click(screen.getByRole("button", { name: "☰" }));
-    const buttons = screen.getAllByRole("button", { name: "ออกจากระบบ" });
-    fireEvent.click(buttons[buttons.length - 1]);
-
-    expect(dialog()).toBeInTheDocument();
-    expect(screen.getAllByRole("button", { name: "ออกจากระบบ" })).toHaveLength(2); // ปุ่ม desktop + ปุ่มในป๊อปอัพ
   });
 });
 
@@ -117,7 +107,6 @@ describe("AdminLayout", () => {
 
   const openLogout = async () => {
     await screen.findByText("dashboard");
-    fireEvent.click(screen.getByText("admin@ku.th", { exact: false }).closest("button"));
     fireEvent.click(screen.getByRole("button", { name: "ออกจากระบบ" }));
   };
 

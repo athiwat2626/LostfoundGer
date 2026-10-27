@@ -4,8 +4,8 @@ const { validateItem } = require("../validation");
 const { findMatches, scorePair, FIELDS } = require("../services/matching");
 const { notify } = require("../services/notify");
 const { issueCertificate } = require("../certificateService");
+const { getSettingSafe } = require("../services/settings");
 
-const CERTIFICATE_MILESTONE = 3;
 const TYPES = ["found", "lost"];
 const ID_PATTERN = /^\d{1,18}$/;
 
@@ -45,9 +45,10 @@ const creditReturner = async (client, studentId) => {
   return result.rows[0] || null;
 };
 
-// หลัง commit: ออกเกียรติบัตรเมื่อคืนของครบทุก ๆ 3 ครั้ง
-const maybeIssueCertificate = (returner) => {
-  if (!returner || returner.successful_returns % CERTIFICATE_MILESTONE !== 0) return false;
+// หลัง commit: ออกเกียรติบัตรเมื่อคืนของครบทุก ๆ N ครั้ง (ตั้งค่าได้ในหน้าแอดมิน ค่าเริ่มต้น 3)
+const maybeIssueCertificate = async (returner) => {
+  const milestone = await getSettingSafe("certificate_milestone");
+  if (!returner || returner.successful_returns % milestone !== 0) return false;
   issueCertificate({
     name: `${returner.first_name} ${returner.last_name}`,
     email: returner.email,
@@ -262,7 +263,7 @@ const confirmReceived = async (req, res) => {
     client.release();
   }
 
-  const certificateIssued = maybeIssueCertificate(returner);
+  const certificateIssued = await maybeIssueCertificate(returner);
   notify(
     item.student_id,
     {
@@ -403,7 +404,7 @@ const confirmReturn = async (req, res) => {
     client.release();
   }
 
-  const certificateIssued = maybeIssueCertificate(returner);
+  const certificateIssued = await maybeIssueCertificate(returner);
   if (params.type === "lost") {
     notify(
       returner?.student_id,

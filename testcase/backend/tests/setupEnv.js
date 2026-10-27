@@ -14,3 +14,5 @@ delete process.env.LINE_USER_ID;
 jest.spyOn(console, "log").mockImplementation(() => {});
 jest.spyOn(console, "warn").mockImplementation(() => {});
 jest.spyOn(console, "error").mockImplementation(() => {});
+delete process.env.GOOGLE_CLIENT_ID;
+delete process.env.GOOGLE_ALLOWED_DOMAINS;

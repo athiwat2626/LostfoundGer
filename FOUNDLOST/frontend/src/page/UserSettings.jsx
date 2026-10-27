@@ -18,6 +18,7 @@ import userApi from "../component/userApi";
 import { API_URL, fetchItems, formatThaiDate, reportState } from "../component/itemUtils";
 import { ItemDetailModal } from "../component/itemUi";
 import LineConnectionCard from "../component/LineConnectionCard";
+import DisplaySettingsCard from "../component/DisplaySettingsCard";
 
 const inputClass =
   "w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm text-slate-800 placeholder-slate-400 outline-none transition focus:border-brand focus:bg-white focus:ring-2 focus:ring-brand/20";
@@ -303,6 +304,8 @@ const UserSettings = () => {
             </section>
 
             <LineConnectionCard />
+
+            <DisplaySettingsCard />
 
             <section className={cardClass}>
               <h2 className="text-lg font-bold text-slate-900">ความปลอดภัยและบัญชี</h2>

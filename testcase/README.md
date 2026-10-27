@@ -2,7 +2,13 @@
 
 | ไฟล์/โฟลเดอร์ | เนื้อหา |
 |---|---|
-| [TEST_CASES.md](TEST_CASES.md) | เอกสารกรณีทดสอบทั้งหมด (อัตโนมัติ + ทดสอบด้วยมือ) ผลการทดสอบ และบั๊กที่พบ |
+| [TEST_PLAN.md](TEST_PLAN.md) | แผนการทดสอบ: วัตถุประสงค์ ขอบเขต วิธีทดสอบ สภาพแวดล้อม เกณฑ์ ความเสี่ยง |
+| [TEST_CASES.md](TEST_CASES.md) | กรณีทดสอบทั้งหมด (อัตโนมัติ + ทดสอบด้วยมือ) พร้อมผล ข้อบกพร่อง และเทสที่ปรับปรุง |
+| [USER_MANUAL.md](USER_MANUAL.md) | คู่มือการใช้งาน (ผู้ใช้, LINE Bot, แอดมิน, ผู้พัฒนา) |
+| [FOUNDLOST_TestCases.xlsx](FOUNDLOST_TestCases.xlsx) | กรณีทดสอบและผลแบบ Excel (มีชีต Manual E2E สำหรับกรอกผลทดสอบด้วยมือ) |
+| [FOUNDLOST_Test_Report.docx](FOUNDLOST_Test_Report.docx) | รายงานสรุปการทดสอบ (Word) |
+| [FOUNDLOST_User_Manual.docx](FOUNDLOST_User_Manual.docx) | คู่มือการใช้งาน (Word) |
+| [results/](results/) | ผลการรันดิบ: Jest/Vitest (JSON) และ node:test (TAP) |
 | [backend/](backend/) | เทส API และ unit test ของ backend — Jest + Supertest |
 | [frontend/](frontend/) | เทสหน้าเว็บและคอมโพเนนต์ React — Vitest + React Testing Library |
 
@@ -30,23 +36,28 @@ npm --prefix testcase/backend run coverage    # พร้อมรายงา�
 # Frontend
 npm --prefix testcase/frontend test
 npm --prefix testcase/frontend run coverage
+
+# LINE Bot / จับคู่ / หน้าจัดการรายการของแอดมิน (node:test อยู่ใน FOUNDLOST/backend/test)
+npm --prefix FOUNDLOST/backend test
 ```
 
-ผลที่ควรได้ (ณ commit `18b65f8`):
+ผลที่ควรได้ (รันเมื่อ 27 ต.ค. 2569 บน commit `88da0f6` + งานที่ยังไม่ commit):
 
-- Backend: `208 passed`
-- Frontend: `123 passed`
+- Backend (Jest): `316 passed` (15 ไฟล์)
+- Backend (node:test): `71 passed` + เทส SQL จริง 6 กรณีเมื่อตั้ง `TEST_DATABASE_URL` (รวม 77)
+- Frontend (Vitest): `190 passed` (13 ไฟล์)
 
 ## โครงสร้างไฟล์เทส
 
 ```
 backend/tests/
-  helpers.js                     โหลด server.js โดยไม่เปิดพอร์ต + ตัวช่วยจำลอง db.query
+  helpers.js                     โหลด server.js โดยไม่เปิดพอร์ต + จำลอง db.query / transaction (db.connect) + token ผู้ใช้/แอดมิน
   setupEnv.js                    ค่า environment สำหรับเทส
   unit.*.test.js                 validation, middleware, LINE, เกียรติบัตร, models
   api.*.test.js                  ทุก endpoint (สาธารณะ, ของหาย/พบของ, รายงาน, เกียรติบัตร, แอดมิน)
 frontend/tests/
-  setup.js, utils.jsx            ตั้งค่า jsdom และตัวช่วย render พร้อม router
+  setup.js, utils.jsx            ตั้งค่า jsdom, ตัวช่วย render พร้อม router, JWT ปลอม (loginAsUser)
+  axiosMock.js                   axios จำลองที่รองรับ axios.create() (userApi) + mockRoutes ตาม URL
   *.test.jsx / *.test.js         หน้า Login/SignUp/Admin, ฟอร์ม, หน้ารายการ, หน้ารายงาน, แอดมิน, คอมโพเนนต์
 ```
 

@@ -2,7 +2,7 @@
 const request = require("supertest");
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
-const { backendPath, loadApp, routeQueries, findQuery, adminToken } = require("./helpers");
+const { backendPath, loadApp, routeQueries, findQuery, adminToken, useTransactionClient } = require("./helpers");
 
 jest.mock("../../../FOUNDLOST/backend/db", () => ({ query: jest.fn(), connect: jest.fn() }));
 jest.mock("../../../FOUNDLOST/backend/services/lineNotification", () => ({ sendLineNotification: jest.fn() }));
@@ -22,6 +22,7 @@ beforeAll(async () => {
 
 beforeEach(() => {
   db.query.mockReset();
+  useTransactionClient(db);
   routeQueries(db.query, [
     [/SELECT admin_id, email, password_hash/, (_sql, [email]) => ({ rows: email === admin.email ? [{ ...admin, password_hash: passwordHash }] : [] })],
     [/SELECT password_hash FROM admins/, { rows: [{ password_hash: passwordHash }] }],

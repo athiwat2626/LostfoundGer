@@ -46,6 +46,16 @@ function routeQueries(queryMock, rules = []) {
   });
 }
 
+/**
+ * ให้ db.connect() คืน client ของ transaction ที่ส่งคำสั่ง SQL ต่อไปยัง db.query
+ * (handler ที่บันทึก audit log ใช้ BEGIN … COMMIT ผ่าน client) — ใช้ routeQueries กับ db.query ได้เหมือนเดิม
+ */
+function useTransactionClient(db) {
+  const client = { query: (...args) => db.query(...args), release: jest.fn() };
+  db.connect.mockResolvedValue(client);
+  return client;
+}
+
 /** หาการเรียก db.query ที่ SQL ตรงกับ pattern */
 function findQuery(queryMock, pattern) {
   return queryMock.mock.calls.find(([sql]) => pattern.test(String(sql).replace(/\s+/g, " ")));
@@ -54,6 +64,10 @@ function findQuery(queryMock, pattern) {
 const adminToken = (payload = { admin_id: 1, email: "admin@test.local" }, options = { expiresIn: "1h" }) =>
   jwt.sign(payload, process.env.JWT_SECRET, options);
 
+// token ผู้ใช้แบบเดียวกับที่ /api/verify-otp ออกให้ (signUserToken)
+const userToken = (payload = {}, options = { expiresIn: "1h" }) =>
+  jwt.sign({ role: "user", student_id: "6410500001", email: "somchai@ku.th", ...payload }, process.env.JWT_SECRET, options);
+
 const pgError = (code, message = "db error") => Object.assign(new Error(message), { code });
 
-module.exports = { BACKEND_DIR, backendPath, loadApp, routeQueries, findQuery, adminToken, pgError };
+module.exports = { BACKEND_DIR, backendPath, loadApp, routeQueries, useTransactionClient, findQuery, adminToken, userToken, pgError };

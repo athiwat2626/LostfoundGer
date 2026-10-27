@@ -5,7 +5,7 @@ import UserLayout from "../component/UserLayout";
 import TypeTabs from "../component/TypeTabs";
 import { ItemGrid, Pagination, ItemDetailModal } from "../component/itemUi";
 import { fetchItems, matchesQuery, paginate, reportState } from "../component/itemUtils";
-import { CATEGORIES } from "../data/categories";
+import { useSiteSettings } from "../component/siteSettings";
 
 const STATUS_OPTIONS = [
   { id: "all", label: "ทุกสถานะ" },
@@ -33,6 +33,7 @@ const SearchPage = () => {
   const [page, setPage] = useState(1);
   const [selected, setSelected] = useState(null);
   const query = params.get("q") || "";
+  const { categories } = useSiteSettings();
 
   // fetchItems คืน [] เมื่อโหลดไม่ได้ → ถ้าว่างทั้งคู่และออฟไลน์ ให้แสดงสถานะเชื่อมต่อไม่ได้
   const fetchAll = () =>
@@ -128,7 +129,7 @@ const SearchPage = () => {
           <fieldset>
             <legend className={labelClass}>หมวดหมู่</legend>
             <div className="flex flex-wrap gap-2">
-              {[{ value: "", label: "ทั้งหมด" }, ...CATEGORIES].map(({ value, label, icon: Icon }) => {
+              {[{ value: "", label: "ทั้งหมด" }, ...categories].map(({ value, label, icon: Icon }) => {
                 const active = filters.category === value;
                 return (
                   <button

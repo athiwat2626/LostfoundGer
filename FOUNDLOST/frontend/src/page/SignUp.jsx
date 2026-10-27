@@ -3,6 +3,7 @@ import axios from "axios";
 import { Link, useNavigate } from "react-router-dom";
 import AuthShell from "../component/AuthShell";
 import { API_URL } from "../component/itemUtils";
+import GoogleSignInButton from "../component/GoogleSignInButton";
 
 const inputClass =
   "w-full rounded-full border-2 border-brand/70 bg-white/90 px-4 py-2.5 text-sm text-slate-800 placeholder-slate-400 outline-none transition focus:border-brand focus:ring-4 focus:ring-brand/15";
@@ -35,6 +36,18 @@ const SignUp = () => {
     } finally {
       setIsSubmitting(false);
     }
+  };
+
+  // สมัครด้วย Google: สร้างบัญชีจากชื่อและอีเมล Google แล้วไปกรอก OTP ที่ส่งไปอีเมลนั้น (มีบัญชีอยู่แล้ว = เข้าสู่ระบบ)
+  const handleGoogle = (data) => {
+    navigate("/login", {
+      state: {
+        otpEmail: data.email,
+        message: data.created
+          ? `สมัครสมาชิกด้วย Google สำเร็จ ส่งรหัส OTP ไปที่ ${data.email} แล้ว`
+          : `มีบัญชีนี้อยู่แล้ว ส่งรหัส OTP ไปที่ ${data.email} แล้ว`,
+      },
+    });
   };
 
   return (
@@ -92,6 +105,8 @@ const SignUp = () => {
         >
           {isSubmitting ? "กำลังสมัครสมาชิก..." : "สมัครสมาชิก"}
         </button>
+
+        <GoogleSignInButton text="signup_with" onSuccess={handleGoogle} onError={setMessage} />
       </form>
 
       {message && (

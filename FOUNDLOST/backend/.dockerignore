@@ -1,0 +1,14 @@
+# ห้ามมี secret, dependency ของเครื่อง dev, ไฟล์ทดสอบ หรือรูปของผู้ใช้อยู่ใน image
+.env
+.env.*
+node_modules
+test
+Dockerfile
+.dockerignore
+*.log
+*.dump
+database-backup.sql
+assets/foundUploads
+assets/lostUploads
+assets/profileUploads
+assets/reportUploads

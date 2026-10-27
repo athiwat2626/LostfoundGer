@@ -1,14 +1,14 @@
 import { Link, useLocation } from "react-router-dom";
-import { Home as HomeIcon, Search, Plus, Bell, UserRound } from "lucide-react";
+import { Home as HomeIcon, Search, Plus, Bell, Settings } from "lucide-react";
 import { useInbox } from "./inboxStore";
 
-// เมนูที่ถือว่าอยู่ในแท็บเดียวกัน (เช่น หน้าโพสต์ของฉัน/ตั้งค่า อยู่ใต้ "โปรไฟล์")
+// เมนูที่ถือว่าอยู่ในแท็บเดียวกัน (เช่น หน้าโปรไฟล์/โพสต์ของฉัน อยู่ใต้ "ตั้งค่า" — หน้าโปรไฟล์เปิดจากรูปที่มุมขวาบน)
 const TABS = [
   { to: "/home", label: "หน้าหลัก", icon: HomeIcon, match: ["/home", "/foundPage", "/lostPage"] },
   { to: "/search", label: "ค้นหา", icon: Search, match: ["/search"] },
   { center: true },
   { to: "/notifications", label: "แจ้งเตือน", icon: Bell, match: ["/notifications"], badge: true },
-  { to: "/profile", label: "โปรไฟล์", icon: UserRound, match: ["/profile", "/settings", "/my-posts", "/ranking", "/line"] },
+  { to: "/settings", label: "ตั้งค่า", icon: Settings, match: ["/settings", "/profile", "/my-posts", "/ranking", "/line"] },
 ];
 
 const isActive = (pathname, match) => match.some((path) => pathname === path || pathname.startsWith(`${path}/`));

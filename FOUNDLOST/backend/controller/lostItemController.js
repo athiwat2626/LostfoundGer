@@ -2,6 +2,7 @@ const db = require("../db");
 const { validateItem } = require("../validation");
 const { sendLineNotification } = require("../services/lineNotification");
 const { notifyNewItemMatches } = require("../services/matchNotifier");
+const { recordAuditSafely } = require("../services/auditLog");
 
 // เพิ่มข้อมูล Lost Item ลงในฐานข้อมูล
 const createLostItems = async (req, res) => {
@@ -60,6 +61,17 @@ const createLostItems = async (req, res) => {
       location: lost_location,
       student_id,
     });
+
+    // แอดมินเพิ่มรายการแทนผู้อื่น → บันทึกในประวัติการดำเนินการ
+    if (req.auth?.role === "admin") {
+      await recordAuditSafely(db, req, {
+        action: "item.create",
+        targetType: "lost_item",
+        targetId: result.rows[0].item_id,
+        summary: `เพิ่มของหาย #${result.rows[0].item_id} "${item_name}"${student_id ? ` แทนผู้ใช้ ${student_id}` : " (ไม่มีเจ้าของโพสต์)"}`,
+        details: { student_id, item_name, category, lost_location },
+      });
+    }
 
     res.status(201).json({ item_id: result.rows[0].item_id });
   } catch (error) {

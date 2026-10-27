@@ -53,7 +53,7 @@ export const formatThaiDate = (value, month = "short") => {
 // ─── ค้นหาด่วน ─────────────────────────────────────────────────────────────────
 // "อื่นๆ" คือรายการที่ไม่เข้าหมวดใดด้านบน
 export const QUICK_FILTERS = [
-  { id: "all", label: "ทั้งหมด", icon: null, tone: "bg-slate-600 hover:bg-slate-700", keywords: [] },
+  { id: "all", label: "ทั้งหมด", icon: null, tone: "bg-[#475569] hover:bg-[#334155]", keywords: [] },
   { id: "bag", label: "กระเป๋า", icon: Briefcase, tone: "bg-green-500 hover:bg-green-600", keywords: ["กระเป๋า", "bag", "wallet"] },
   { id: "key", label: "Key", icon: KeyRound, tone: "bg-orange-400 hover:bg-orange-500", keywords: ["กุญแจ", "key"] },
   { id: "electronic", label: "อิเล็กทรอนิกส์", icon: Smartphone, tone: "bg-indigo-500 hover:bg-indigo-600", keywords: ["อิเล็กทรอนิกส์", "โทรศัพท์", "phone", "laptop", "tablet"] },

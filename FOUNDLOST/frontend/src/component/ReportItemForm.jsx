@@ -20,7 +20,7 @@ import {
   RotateCcw,
 } from "lucide-react";
 import { campusLocations } from "../data/campusLocations";
-import { CATEGORIES } from "../data/categories";
+import { useSiteSettings } from "./siteSettings";
 import userApi from "./userApi";
 
 const CAMPUS_CENTER = [14.022788, 99.978337];
@@ -129,6 +129,7 @@ const LocationSuggestions = ({ items, onSelect }) =>
 // ฟอร์มแจ้งของหาย / แจ้งพบของ (type = "lost" | "found")
 const ReportItemForm = ({ type }) => {
   const text = TEXT[type];
+  const { categories, depositPoints } = useSiteSettings();
   const mapRef = useRef(null);
   const mapSearchRef = useRef(null);
   const fileInputRef = useRef(null);
@@ -253,7 +254,7 @@ const ReportItemForm = ({ type }) => {
   };
 
   return (
-    <div className="mt-5 grid gap-5 sm:mt-6 sm:gap-6 lg:grid-cols-[minmax(0,1.15fr)_minmax(0,1fr)]">
+    <div className="mt-5 grid grid-cols-[minmax(0,1fr)] gap-5 sm:mt-6 sm:gap-6 lg:grid-cols-[minmax(0,1.15fr)_minmax(0,1fr)]">
       <header className="relative overflow-hidden rounded-3xl gradient-hero px-5 py-5 text-white shadow-md sm:rounded-2xl sm:px-6 sm:py-6 lg:col-start-1 lg:row-start-1">
         <div className="absolute -right-8 -top-10 h-32 w-32 rounded-full bg-white/10" />
         <h1 className="relative text-2xl font-bold sm:text-3xl">{text.title}</h1>
@@ -395,7 +396,7 @@ const ReportItemForm = ({ type }) => {
         <fieldset>
           <legend className={labelClass}>หมวดหมู่</legend>
           <div className="grid grid-cols-3 gap-2">
-            {CATEGORIES.map(({ value, label, icon: Icon, tone }) => {
+            {categories.map(({ value, label, icon: Icon, tone }) => {
               const active = form.category === value;
               return (
                 <button
@@ -518,6 +519,31 @@ const ReportItemForm = ({ type }) => {
               setDepositSuggestions([]);
             }}
           />
+          {/* จุดรับฝากที่แอดมินกำหนด (ตั้งค่า → ค่าระบบ) */}
+          {depositPoints.length > 0 && (
+            <div className="mt-2">
+              <p className="mb-1.5 text-xs text-slate-500">จุดรับฝากของที่แนะนำ</p>
+              <div className="flex flex-wrap gap-2">
+                {depositPoints.map((point) => {
+                  const active = form.deposit_location === point.name;
+                  return (
+                    <button
+                      key={point.name}
+                      type="button"
+                      onClick={() => setField("deposit_location", point.name)}
+                      aria-pressed={active}
+                      className={`flex min-h-10 flex-col items-start rounded-xl border px-3 py-1.5 text-left text-xs transition ${
+                        active ? "border-brand bg-brand-50 text-brand" : "border-slate-200 text-slate-600 hover:bg-slate-50"
+                      }`}
+                    >
+                      <span className="font-semibold">{point.name}</span>
+                      {point.hours && <span className="text-[11px] text-slate-400">{point.hours}</span>}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          )}
         </div>
 
         </Step>

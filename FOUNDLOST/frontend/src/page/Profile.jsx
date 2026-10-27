@@ -17,6 +17,7 @@ import {
 import UserLayout from "../component/UserLayout";
 import userApi from "../component/userApi";
 import LineConnectionCard from "../component/LineConnectionCard";
+import DisplaySettingsCard from "../component/DisplaySettingsCard";
 import ConfirmLogoutModal from "../component/ConfirmLogoutModal";
 import { clearUserSession } from "../component/session";
 import { useInbox } from "../component/inboxStore";
@@ -138,6 +139,8 @@ const Profile = () => {
         </MenuGroup>
 
         <LineConnectionCard />
+
+        <DisplaySettingsCard />
 
         <MenuGroup title="บัญชีและการตั้งค่า">
           <MenuRow to="/settings" icon={UserRoundPen} label="ข้อมูลส่วนตัวและช่องทางติดต่อ" hint="ชื่อ รูปโปรไฟล์ เบอร์โทร อีเมลสำรอง" />

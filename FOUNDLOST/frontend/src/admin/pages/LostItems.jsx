@@ -1,5 +1,5 @@
 import ItemsPage from "./ItemsPage";
 
-const LostItems = () => <ItemsPage type="lost" title="รายการแจ้งของหาย" />;
+const LostItems = () => <ItemsPage type="lost" />;
 
 export default LostItems;

@@ -4,6 +4,8 @@ import { Link, useLocation, useNavigate } from "react-router-dom";
 import { ChevronLeft, KeyRound, ShieldCheck } from "lucide-react";
 import AuthShell from "../component/AuthShell";
 import { API_URL } from "../component/itemUtils";
+import { saveUserSession } from "../component/session";
+import GoogleSignInButton from "../component/GoogleSignInButton";
 
 const inputClass =
   "w-full rounded-full border-2 border-brand/70 bg-white/90 py-2.5 pl-11 pr-4 text-sm text-slate-800 placeholder-slate-400 outline-none transition focus:border-brand focus:ring-4 focus:ring-brand/15";
@@ -18,8 +20,10 @@ const Login = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const redirectTo = safeRedirect(location.state?.from);
-  const [step, setStep] = useState("email"); // "email" → "otp"
-  const [email, setEmail] = useState("");
+  // มาจากการสมัคร/เข้าด้วย Google ในหน้าสมัคร → เริ่มที่ขั้นตอนกรอก OTP ของอีเมลนั้นเลย
+  const googleEmail = location.state?.otpEmail || "";
+  const [step, setStep] = useState(googleEmail ? "otp" : "email"); // "email" → "otp"
+  const [email, setEmail] = useState(googleEmail);
   const [otp, setOtp] = useState("");
   const [notice, setNotice] = useState(location.state?.message || "");
   const [error, setError] = useState("");
@@ -51,10 +55,7 @@ const Login = () => {
     setBusy(true);
     try {
       const response = await axios.post(`${API_URL}/api/verify-otp`, { email, otp });
-      localStorage.setItem("isLoggedIn", "true");
-      localStorage.setItem("email", email);
-      localStorage.setItem("student_id", response.data.student_id || "unknown");
-      if (response.data.token) localStorage.setItem("userToken", response.data.token);
+      saveUserSession({ token: response.data.token, email, student_id: response.data.student_id });
       setNotice("OTP ถูกต้อง กำลังเข้าสู่ระบบ...");
       setTimeout(() => navigate(redirectTo, { replace: true }), 2000);
     } catch (err) {
@@ -63,6 +64,19 @@ const Login = () => {
         : err.response?.data?.message || "OTP ไม่ถูกต้อง");
       setBusy(false);
     }
+  };
+
+  // ขั้นที่ 1 ยืนยันกับ Google สำเร็จ (บัญชีใหม่ถูกสร้างให้อัตโนมัติ) → ขั้นที่ 2 กรอก OTP ที่ส่งไปอีเมล Google
+  const handleGoogle = (data) => {
+    setEmail(data.email);
+    setOtp("");
+    setError("");
+    setStep("otp");
+    setNotice(
+      data.retry_after
+        ? `ส่งรหัส OTP ไปที่ ${data.email} แล้วเมื่อสักครู่ กรุณาใช้รหัสล่าสุดในอีเมล`
+        : `ยืนยันบัญชี Google แล้ว ส่งรหัส OTP ไปที่ ${data.email} แล้ว`
+    );
   };
 
   const backToEmail = () => {
@@ -98,6 +112,8 @@ const Login = () => {
           <button type="submit" disabled={busy} className={primaryButtonClass}>
             {busy ? "กำลังส่งรหัส..." : "ลงชื่อเข้าใช้"}
           </button>
+
+          <GoogleSignInButton text="signin_with" onSuccess={handleGoogle} onError={setError} />
         </form>
       ) : (
         <form onSubmit={verifyOTP} className="space-y-5">

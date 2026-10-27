@@ -6,8 +6,8 @@ const router = express.Router();
 const { issueCertificate } = require('../certificateService');
 const { incrementSuccessfulReturnsByEmail } = require('../models/certificateModel');
 const { validateEmail } = require('../validation');
+const { getSettingSafe } = require('../services/settings');
 
-const CERTIFICATE_MILESTONE = 3;
 
 /**
  * POST /api/returns/confirm-success
@@ -28,9 +28,10 @@ router.post('/confirm-success', async (req, res) => {
     const user = await incrementSuccessfulReturnsByEmail(normalizedEmail);
 
     // 2) ถ้ายอดสะสมครบ 3 (หรือทวีคูณของ 3) -> ออกเกียรติบัตร
+    const milestone = await getSettingSafe('certificate_milestone');
     const reachedMilestone =
       user.successful_returns > 0 &&
-      user.successful_returns % CERTIFICATE_MILESTONE === 0;
+      user.successful_returns % milestone === 0;
 
     if (reachedMilestone) {
       const fullName = `${user.first_name} ${user.last_name}`;
