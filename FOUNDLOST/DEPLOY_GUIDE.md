@@ -6,6 +6,8 @@
 > ปลายทาง: **Oracle Cloud Always Free** (Ampere ARM, Ubuntu 24.04) ที่ **https://app.foundlost.tech** — image build ทั้ง amd64/arm64 จึงย้ายไป VPS อื่น (เช่น Hostinger) ได้โดยไม่ต้องแก้
 > `foundlost.tech` / `www` เป็นโปรเจกต์อื่นที่ deploy ไว้แล้ว — **ห้ามแก้ DNS ของ `@`, `www` และ AAAA ของโดเมนหลัก** แอปนี้เพิ่มแค่ A record `app`
 > **อยู่ร่วม VPS กับแอปอื่นได้:** container ไม่ใช้พอร์ต 80/443 ของเครื่อง — web bind `127.0.0.1:3310` (Lab ใช้ 3300), โฟลเดอร์ `/opt/foundlost`, compose project `foundlost`, Nginx ของเครื่องเพิ่มเฉพาะไฟล์ `foundlost.conf` และ `deploy/check-vps.sh` ตรวจการชนก่อนทุก deploy
+> **VPS จริง (`179.197.241.31`, Hostinger KVM 1):** 80/443 ถูก Caddy ของ `foundlost_production` (foundlost.tech เวอร์ชันเดิม, `/opt/it-project/FOUNDLOST`) ถืออยู่ → ใช้ **โหมด shared Caddy**: ต่อท้าย `Caddyfile.production` ของตัวเดิมด้วย block `app.foundlost.tech → foundlost-app-web:80` และ web ของแอปนี้เข้า network `foundlost_production_edge` (`deploy/compose.shared-caddy.yml`, เปิดด้วย `SHARED_CADDY_NETWORK` ใน `.env`) — `deploy/install.sh` เลือกโหมดและทำให้เอง
+> ⚠️ ถ้าตัวเดิม deploy ใหม่แล้ว `Caddyfile.production` ถูกเขียนทับ ต้องเพิ่ม block กลับ (ไม่งั้น app.foundlost.tech ขึ้น 502) · ห้ามใช้ LINE channel เดียวกับตัวเดิม (webhook ได้ที่เดียว)
 
 ## 1. ภาพรวมโปรเจกต์
 
@@ -120,6 +122,14 @@ Express → PostgreSQL :5432                               (network data, intern
 **บนเครื่องพัฒนา**
 1. commit ไฟล์ข้อ 3 แล้ว push / merge เข้า `main` → CI ต้องเขียวทุก job
 2. workflow `Deploy` จะ publish image ขึ้น GHCR (job deploy ถูกข้ามเพราะยังไม่ตั้ง `DEPLOY_ENABLED`)
+
+**ทางลัด: ข้อ 5–8 ด้วยคำสั่งเดียว** (root บน VPS, เช่น hPanel → VPS → จัดการ → Web console)
+
+```bash
+bash <(curl -fsSL https://raw.githubusercontent.com/athiwat2626/LostfoundGer/main/FOUNDLOST/deploy/install.sh)
+```
+
+ตรวจของเดิม → เลือกโหมด (Nginx หรือ shared Caddy) → ถาม `yes` + อีเมลแอดมิน → ติดตั้ง → แสดงค่าที่ต้องใส่ใน GitHub (ข้อ 9) — หยุดก่อนแตะอะไรถ้าเจอสิ่งที่ไม่รู้จัก
 
 **VPS (ใช้เครื่องที่มีแอปอื่นอยู่แล้วได้ หรือ Oracle Cloud Always Free)**
 3. ถ้าสร้าง Oracle Cloud ใหม่: Image = Ubuntu 24.04, Shape = VM.Standard.A1.Flex, เปิด Public IPv4

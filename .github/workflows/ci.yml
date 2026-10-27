@@ -130,3 +130,5 @@ jobs:
           cp deploy/.env.deploy.example .env
           cp deploy/backend.env.example backend.env
           docker compose -f compose.deploy.yml config --quiet
+          SHARED_CADDY_NETWORK=ci-shared-edge docker compose -f compose.deploy.yml -f deploy/compose.shared-caddy.yml config --quiet
+          bash -n deploy/*.sh

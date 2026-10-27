@@ -7,6 +7,8 @@ set -euo pipefail
 cd "$(dirname "$0")/.."
 
 COMPOSE=(docker compose -f compose.deploy.yml)
+# อยู่ร่วม VPS กับ Caddy ของโปรเจกต์อื่น (ดู deploy/compose.shared-caddy.yml)
+grep -qs '^SHARED_CADDY_NETWORK=.' .env && COMPOSE+=(-f deploy/compose.shared-caddy.yml)
 TAG="${1:-}"
 
 for f in .env backend.env; do

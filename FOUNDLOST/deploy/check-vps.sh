@@ -37,7 +37,22 @@ else
 fi
 
 # 3) โดเมนต้องมีใน Nginx เฉพาะไฟล์ของแอปนี้ (foundlost.conf)
-if [[ -d /etc/nginx ]]; then
+SHARED_NET="$(grep -E '^SHARED_CADDY_NETWORK=' .env 2>/dev/null | cut -d= -f2 || true)"
+if [[ -n "$SHARED_NET" ]]; then
+  # โหมดใช้ Caddy ของโปรเจกต์อื่น: network ต้องมีอยู่ และชื่อ foundlost-app-web ต้องไม่ถูกตัวอื่นใช้
+  if docker network inspect "$SHARED_NET" >/dev/null 2>&1; then
+    ok "network $SHARED_NET มีอยู่"
+    users="$(docker network inspect "$SHARED_NET" --format '{{range .Containers}}{{.Name}} {{end}}')"
+    for c in $users; do
+      [[ "$c" == "$PROJECT"-* ]] && continue
+      if docker inspect "$c" --format '{{range .NetworkSettings.Networks}}{{join .Aliases " "}} {{end}}' | grep -qw foundlost-app-web; then
+        fail "ชื่อ foundlost-app-web ถูก container $c ใช้อยู่แล้ว"
+      fi
+    done
+  else
+    fail "ไม่พบ network $SHARED_NET (SHARED_CADDY_NETWORK ใน .env)"
+  fi
+elif [[ -d /etc/nginx ]]; then
   others="$(grep -rlsE "server_name[^;]*[[:space:]]$DOMAIN([[:space:]]|;)" /etc/nginx/sites-enabled /etc/nginx/conf.d 2>/dev/null \
     | xargs -r -n1 readlink -f | sort -u | grep -v '/foundlost\.conf$' || true)"
   if [[ -n "$others" ]]; then

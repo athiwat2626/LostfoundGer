@@ -1,0 +1,21 @@
+# ใช้เมื่อพอร์ต 80/443 ของ VPS ถูก Caddy ของอีกโปรเจกต์ถืออยู่ (เช่น foundlost.tech เวอร์ชันเดิม)
+# web ของแอปนี้จะเข้า network ของ Caddy ตัวนั้นในชื่อ foundlost-app-web
+# แล้วเพิ่ม block นี้ใน Caddyfile ของตัวนั้น (deploy/install.sh ทำให้):
+#   app.foundlost.tech {
+#       encode zstd gzip
+#       reverse_proxy foundlost-app-web:80
+#   }
+#
+# เปิดใช้: ใส่ SHARED_CADDY_NETWORK=<ชื่อ network ของ Caddy ตัวนั้น> ใน .env
+# deploy.sh / backup.sh / restore.sh จะรวมไฟล์นี้ให้เองเมื่อมีค่านั้น
+services:
+  web:
+    networks:
+      edge: {}
+      shared_caddy:
+        aliases: [foundlost-app-web]
+
+networks:
+  shared_caddy:
+    external: true
+    name: ${SHARED_CADDY_NETWORK:?ต้องตั้ง SHARED_CADDY_NETWORK ใน .env}

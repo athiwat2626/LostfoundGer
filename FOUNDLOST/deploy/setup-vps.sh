@@ -18,8 +18,14 @@ apt-get update
 apt-get install -y ca-certificates curl
 
 command -v docker >/dev/null || curl -fsSL https://get.docker.com | sh
-command -v nginx >/dev/null || apt-get install -y nginx
-command -v certbot >/dev/null || apt-get install -y certbot python3-certbot-nginx
+# Nginx/certbot ใช้เมื่อ 80/443 ว่างหรือเป็น Nginx อยู่แล้ว — ถ้าโปรแกรมอื่นถืออยู่ (เช่น Caddy ของอีกโปรเจกต์)
+# ข้ามไป เพราะ Nginx จะเริ่มไม่ได้ และแอปนี้ใช้ deploy/compose.shared-caddy.yml แทน
+if command -v nginx >/dev/null || ! ss -Hltn '( sport = :80 or sport = :443 )' | grep -q .; then
+  command -v nginx >/dev/null || apt-get install -y nginx
+  command -v certbot >/dev/null || apt-get install -y certbot python3-certbot-nginx
+else
+  echo "พอร์ต 80/443 ถูกโปรแกรมอื่นใช้อยู่ — ไม่ติดตั้ง Nginx/certbot"
+fi
 
 id "$DEPLOY_USER" >/dev/null 2>&1 || adduser --disabled-password --gecos "" "$DEPLOY_USER"
 usermod -aG docker "$DEPLOY_USER"
@@ -35,7 +41,8 @@ if [[ -f /etc/iptables/rules.v4 ]] && grep -q "REJECT" /etc/iptables/rules.v4; t
   done
   netfilter-persistent save
 elif command -v ufw >/dev/null && ufw status | grep -q "Status: active"; then
-  ufw allow 'Nginx Full'
+  ufw allow 80/tcp
+  ufw allow 443/tcp
 fi
 # พอร์ตแอป (APP_PORT) bind ที่ 127.0.0.1 จึงไม่ต้องเปิดไฟร์วอลล์
 
