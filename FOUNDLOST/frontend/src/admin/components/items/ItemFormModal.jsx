@@ -2,6 +2,8 @@ import { useEffect, useRef, useState } from "react";
 import { X, ImagePlus, Loader2 } from "lucide-react";
 import adminApi from "../../api/adminApi";
 import { useSiteSettings } from "../../../component/siteSettings";
+import { LocationSuggestions } from "../../../component/LocationSuggestions";
+import { searchLocations } from "../../../data/campusLocations";
 import { ITEM_TYPES, toDateInput } from "./itemMeta";
 
 const inputClass =
@@ -10,12 +12,13 @@ const labelClass = "mb-1 block text-xs font-medium text-slate-500";
 
 // ฟอร์มเพิ่ม/แก้ไขรายการของแอดมิน (item = null → เพิ่มใหม่)
 // เพิ่ม: POST /lostItem | /foundItem (multipart, แนบรูปได้) — แก้ไข: PATCH /admin/items/:type/:id
+// รายการที่แอดมินเพิ่มไม่มีเจ้าของโพสต์ (ไม่ส่ง student_id)
 const ItemFormModal = ({ type, item = null, onClose, onSaved }) => {
   const meta = ITEM_TYPES[type];
   const isEdit = Boolean(item);
   const fileInputRef = useRef(null);
   const firstFieldRef = useRef(null);
-  const { categoryNames } = useSiteSettings();
+  const { categoryNames, depositPoints } = useSiteSettings();
   const [form, setForm] = useState(() => ({
     item_name: item?.item_name || "",
     category: item?.category || "",
@@ -24,8 +27,9 @@ const ItemFormModal = ({ type, item = null, onClose, onSaved }) => {
     [meta.dateField]: toDateInput(item?.[meta.dateField]),
     deposit_location: item?.deposit_location || "",
     description: item?.description || "",
-    ...(isEdit ? {} : { student_id: "" }),
   }));
+  const [locationSuggestions, setLocationSuggestions] = useState([]);
+  const [depositSuggestions, setDepositSuggestions] = useState([]);
   const [imageFile, setImageFile] = useState(null);
   const [previewUrl, setPreviewUrl] = useState(null);
   const [error, setError] = useState("");
@@ -138,9 +142,28 @@ const ItemFormModal = ({ type, item = null, onClose, onSaved }) => {
           </div>
 
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-            <div>
+            <div className="relative">
               <label htmlFor="item-location" className={labelClass}>{meta.locationLabel} *</label>
-              <input id="item-location" value={form[meta.locationField]} maxLength={255} required onChange={(e) => setField(meta.locationField, e.target.value)} className={inputClass} />
+              <input
+                id="item-location"
+                value={form[meta.locationField]}
+                maxLength={255}
+                required
+                autoComplete="off"
+                placeholder="พิมพ์ชื่อสถานที่"
+                onChange={(e) => {
+                  setField(meta.locationField, e.target.value);
+                  setLocationSuggestions(searchLocations(e.target.value));
+                }}
+                className={inputClass}
+              />
+              <LocationSuggestions
+                items={locationSuggestions}
+                onSelect={(location) => {
+                  setField(meta.locationField, location.name);
+                  setLocationSuggestions([]);
+                }}
+              />
             </div>
             <div>
               <label htmlFor="item-date" className={labelClass}>{meta.dateLabel} *</label>
@@ -148,16 +171,49 @@ const ItemFormModal = ({ type, item = null, onClose, onSaved }) => {
             </div>
           </div>
 
-          {!isEdit && (
-            <div>
-              <label htmlFor="item-owner" className={labelClass}>รหัสนิสิตผู้แจ้ง (ไม่บังคับ)</label>
-              <input id="item-owner" value={form.student_id} maxLength={20} onChange={(e) => setField("student_id", e.target.value)} placeholder="เว้นว่างได้หากไม่ทราบ" className={inputClass} />
-            </div>
-          )}
-
-          <div>
+          <div className="relative">
             <label htmlFor="item-deposit" className={labelClass}>จุดรับฝากของ</label>
-            <input id="item-deposit" value={form.deposit_location} maxLength={255} onChange={(e) => setField("deposit_location", e.target.value)} className={inputClass} />
+            <input
+              id="item-deposit"
+              value={form.deposit_location}
+              maxLength={255}
+              autoComplete="off"
+              placeholder="เช่น กองกิจการนิสิต, ห้องสมุด"
+              onChange={(e) => {
+                setField("deposit_location", e.target.value);
+                setDepositSuggestions(searchLocations(e.target.value));
+              }}
+              className={inputClass}
+            />
+            <LocationSuggestions
+              items={depositSuggestions}
+              onSelect={(location) => {
+                setField("deposit_location", location.name);
+                setDepositSuggestions([]);
+              }}
+            />
+            {/* จุดรับฝากที่ตั้งไว้ในค่าระบบ — ชุดเดียวกับฟอร์มของผู้ใช้ */}
+            {depositPoints.length > 0 && (
+              <div className="mt-2 flex flex-wrap gap-2">
+                {depositPoints.map((point) => {
+                  const active = form.deposit_location === point.name;
+                  return (
+                    <button
+                      key={point.name}
+                      type="button"
+                      onClick={() => setField("deposit_location", point.name)}
+                      aria-pressed={active}
+                      className={`flex min-h-9 flex-col items-start rounded-lg border px-2.5 py-1 text-left text-xs transition ${
+                        active ? "border-brand bg-brand-50 text-brand" : "border-slate-200 text-slate-600 hover:bg-slate-50"
+                      }`}
+                    >
+                      <span className="font-semibold">{point.name}</span>
+                      {point.hours && <span className="text-[11px] text-slate-400">{point.hours}</span>}
+                    </button>
+                  );
+                })}
+              </div>
+            )}
           </div>
 
           <div>

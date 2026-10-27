@@ -19,7 +19,8 @@ import {
   ListChecks,
   RotateCcw,
 } from "lucide-react";
-import { campusLocations } from "../data/campusLocations";
+import { campusLocations, searchLocations } from "../data/campusLocations";
+import { LocationSuggestions } from "./LocationSuggestions";
 import { useSiteSettings } from "./siteSettings";
 import userApi from "./userApi";
 
@@ -80,11 +81,6 @@ const EMPTY_FORM = {
 
 const distance = ([lat1, lng1], [lat2, lng2]) => Math.hypot(lat1 - lat2, lng1 - lng2);
 
-const searchLocations = (query) => {
-  const q = query.trim().toLowerCase();
-  return q ? campusLocations.filter((l) => l.name.toLowerCase().includes(q)).slice(0, 8) : [];
-};
-
 const labelClass = "mb-1.5 block text-sm font-semibold text-slate-800";
 // text-base บนมือถือ: iOS ไม่ซูมหน้าเมื่อแตะช่องกรอก
 const inputClass =
@@ -107,24 +103,6 @@ const MapClickHandler = ({ onPick }) => {
   useMapEvents({ click: (event) => onPick([event.latlng.lat, event.latlng.lng]) });
   return null;
 };
-
-const LocationSuggestions = ({ items, onSelect }) =>
-  items.length > 0 && (
-    <ul className="absolute z-1000 mt-1 max-h-60 w-full overflow-auto rounded-xl border border-slate-200 bg-white py-1 shadow-lg">
-      {items.map((location) => (
-        <li key={location.name}>
-          <button
-            type="button"
-            onClick={() => onSelect(location)}
-            className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-slate-700 hover:bg-brand-50"
-          >
-            <MapPin size={14} className="shrink-0 text-brand" />
-            {location.name}
-          </button>
-        </li>
-      ))}
-    </ul>
-  );
 
 // ฟอร์มแจ้งของหาย / แจ้งพบของ (type = "lost" | "found")
 const ReportItemForm = ({ type }) => {

@@ -159,3 +159,9 @@ export const findLocationCoords = (name) => {
   );
   return partial ? partial.position : null;
 };
+
+// ค้นหาสถานที่จากชื่อ (ช่องกรอกสถานที่ในฟอร์มผู้ใช้และฟอร์มแอดมิน)
+export const searchLocations = (query) => {
+  const q = query.trim().toLowerCase();
+  return q ? campusLocations.filter((l) => l.name.toLowerCase().includes(q)).slice(0, 8) : [];
+};
