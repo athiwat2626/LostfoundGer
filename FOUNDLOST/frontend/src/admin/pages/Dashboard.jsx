@@ -177,7 +177,7 @@ const Dashboard = () => {
 
           <div className="mt-5 grid gap-5 sm:mt-6 sm:gap-6 lg:grid-cols-3">
             {/* กราฟแนวโน้ม */}
-            <section className="rounded-2xl border border-slate-100 bg-white p-4 shadow-sm sm:p-5 lg:col-span-2">
+            <section className="min-w-0 rounded-2xl border border-slate-100 bg-white p-4 shadow-sm sm:p-5 lg:col-span-2">
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <div>
                   <h2 className="text-base font-bold text-slate-900">แนวโน้มการแจ้ง</h2>
@@ -227,7 +227,7 @@ const Dashboard = () => {
             </section>
 
             {/* งานที่ต้องจัดการ */}
-            <section className="rounded-2xl border border-slate-100 bg-white p-4 shadow-sm sm:p-5">
+            <section className="min-w-0 rounded-2xl border border-slate-100 bg-white p-4 shadow-sm sm:p-5">
               <h2 className="text-base font-bold text-slate-900">งานที่ต้องจัดการ</h2>
               <p className="text-xs text-slate-500">ทางลัดไปยังรายการที่รอดำเนินการ</p>
               <div className="mt-4 space-y-3">
