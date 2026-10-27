@@ -1,6 +1,7 @@
 # หน้าเว็บของ FOUND&LOST: build ด้วย Vite แล้วเสิร์ฟด้วย Caddy (HTTPS อัตโนมัติ + ส่ง /backend/* ต่อให้ Express)
 # build (context = โฟลเดอร์ FOUNDLOST): docker build -f deploy/Dockerfile.web -t foundlost-web FOUNDLOST
-FROM node:24-bookworm-slim AS build
+# ผล build เป็นไฟล์ static ไม่ขึ้นกับ CPU จึง build บนเครื่อง build เสมอ (เร็วกว่าจำลอง ARM)
+FROM --platform=$BUILDPLATFORM node:24-bookworm-slim AS build
 WORKDIR /app
 COPY frontend/package.json frontend/package-lock.json ./
 RUN npm ci --no-audit --no-fund

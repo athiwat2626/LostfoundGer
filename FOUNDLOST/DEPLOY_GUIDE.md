@@ -3,7 +3,7 @@
 > ปรับจาก guideline กลางให้ตรงกับโค้ดจริงของ FOUNDLOST — อัปเดต 27 ตุลาคม 2569 (2026)
 > **สถานะ:** ไฟล์ Docker / Caddy / compose / สคริปต์ / GitHub Actions พร้อมแล้ว และทดสอบ stack production ในเครื่องผ่าน
 > ยังไม่ได้ push, ยังไม่ได้แตะ GitHub settings / VPS / DNS — ขั้นตอนที่เหลือเป็นของผู้ดูแลระบบ (ข้อ 7)
-> ปลายทาง: Hostinger VPS (Ubuntu 24.04) ที่ **https://app.foundlost.tech**
+> ปลายทาง: **Oracle Cloud Always Free** (Ampere ARM, Ubuntu 24.04) ที่ **https://app.foundlost.tech** — image build ทั้ง amd64/arm64 จึงย้ายไป VPS อื่น (เช่น Hostinger) ได้โดยไม่ต้องแก้
 > `foundlost.tech` / `www` เป็นระบบอื่นที่เปิดใช้อยู่บนเครื่องอื่น — **ห้ามแก้ DNS ของ `@`, `www` และ AAAA ของโดเมนหลัก** และห้าม deploy ลงเครื่องนั้น (ชนพอร์ต 80/443)
 
 ## 1. ภาพรวมโปรเจกต์
@@ -115,13 +115,16 @@ Express → PostgreSQL :5432                               (network data, intern
 1. commit ไฟล์ข้อ 3 แล้ว push / merge เข้า `main` → CI ต้องเขียวทุก job
 2. workflow `Deploy` จะ publish image ขึ้น GHCR (job deploy ถูกข้ามเพราะยังไม่ตั้ง `DEPLOY_ENABLED`)
 
-**Hostinger**
-3. ซื้อ VPS ใหม่ (แนะนำ KVM 1 ขึ้นไป) เลือก Ubuntu 24.04 — ต้องเป็นคนละเครื่องกับที่รัน `foundlost.tech`
+**Oracle Cloud (ฟรี)**
+3. สร้าง instance: Image = Canonical Ubuntu 24.04, Shape = VM.Standard.A1.Flex (Ampere, Always Free ≤ 4 OCPU / 24 GB), ใส่ public key `~/.ssh/foundlost_oracle.pub`, เปิด Public IPv4 — ต้องเป็นคนละเครื่องกับที่รัน `foundlost.tech`
+   - Networking → VCN → Security List → Add Ingress Rules: `0.0.0.0/0` TCP 80, TCP 443 (และ UDP 443)
+   - ผู้ใช้เริ่มต้นคือ `ubuntu` (ไม่มีรหัสผ่าน root): `ssh -i ~/.ssh/foundlost_oracle ubuntu@<IP>`
+   - `setup-vps.sh` ตรวจพบกฎ iptables ของ Oracle เองและเปิด 80/443 ให้ (ไม่ใช้ ufw)
 4. hPanel → DNS ของ `foundlost.tech`: **เพิ่ม** A record ชื่อ `app` → IP ของ VPS ใหม่ (ไม่ต้องเพิ่ม AAAA ถ้า VPS ไม่ได้ตั้ง IPv6; ห้ามแก้ระเบียน `@`/`www` เดิม)
    - โดเมนหลักตั้ง HSTS `includeSubDomains` ไว้ → โดเมนย่อยต้องเป็น HTTPS เท่านั้น (Caddy ออกใบรับรองให้อัตโนมัติ) ตรวจ DNS ก่อน deploy: `nslookup app.foundlost.tech`
 
-**บน VPS** (SSH ด้วย root ครั้งแรก)
-5. คัดลอก `FOUNDLOST/deploy/setup-vps.sh` ขึ้นไปแล้วรัน `sudo bash setup-vps.sh deploy /opt/foundlost`
+**บน VPS**
+5. (Oracle: เข้าเครื่องด้วยผู้ใช้ `ubuntu`) คัดลอก `FOUNDLOST/deploy/setup-vps.sh` ขึ้นไปแล้วรัน `sudo bash setup-vps.sh deploy /opt/foundlost`
 6. สร้าง SSH key สำหรับ GitHub Actions (บนเครื่องพัฒนา: `ssh-keygen -t ed25519 -f foundlost_deploy -N ""`) → ใส่ `.pub` ใน `/home/deploy/.ssh/authorized_keys`
 7. ใน `/opt/foundlost` สร้าง `.env` และ `backend.env` จาก `deploy/*.example` (ไฟล์ตัวอย่างจะถูก copy มาให้ตอน deploy ครั้งแรก หรือคัดลอกเองก่อน) แล้ว `chmod 600 .env backend.env`
    - `APP_DOMAIN=app.foundlost.tech`, `APP_BASE_URL=https://app.foundlost.tech`
