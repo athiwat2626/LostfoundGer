@@ -6,6 +6,8 @@ import TypeTabs from "../component/TypeTabs";
 import { ItemGrid, Pagination, ItemDetailModal } from "../component/itemUi";
 import { fetchItems, matchesQuery, paginate, reportState } from "../component/itemUtils";
 import { useSiteSettings } from "../component/siteSettings";
+import { LocationSuggestions } from "../component/LocationSuggestions";
+import { campusLocations, searchLocations } from "../data/campusLocations";
 
 const STATUS_OPTIONS = [
   { id: "all", label: "ทุกสถานะ" },
@@ -21,6 +23,9 @@ const labelClass = "mb-1.5 block text-xs font-semibold text-slate-600";
 const inputClass =
   "w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-base text-slate-800 outline-none transition focus:border-brand focus:bg-white focus:ring-2 focus:ring-brand/20 md:text-sm";
 
+// แตะช่องว่าง = แสดงสถานที่ทั้งหมดให้เลือก / พิมพ์ = กรองตามคำ
+const locationOptions = (query) => (query.trim() ? searchLocations(query) : campusLocations);
+
 // ─── หน้าค้นหา: ค้นจากรายการของหาย + ของพบ (API เดิม GET /lostItem, /foundItem) แล้วกรองบนเครื่อง ───
 const SearchPage = () => {
   const navigate = useNavigate();
@@ -32,6 +37,7 @@ const SearchPage = () => {
   const [showFilters, setShowFilters] = useState(false);
   const [page, setPage] = useState(1);
   const [selected, setSelected] = useState(null);
+  const [locationSuggestions, setLocationSuggestions] = useState([]);
   const query = params.get("q") || "";
   const { categories } = useSiteSettings();
 
@@ -154,14 +160,28 @@ const SearchPage = () => {
             </div>
           </fieldset>
 
-          <div className="mt-4">
+          <div className="relative mt-4">
             <label htmlFor="filter-location" className={labelClass}>สถานที่</label>
             <input
               id="filter-location"
               value={filters.location}
-              onChange={(e) => setFilter("location", e.target.value)}
-              placeholder="เช่น อาคาร, ห้องสมุด"
+              autoComplete="off"
+              onFocus={(e) => setLocationSuggestions(locationOptions(e.target.value))}
+              // หน่วงปิดเล็กน้อยให้คลิกรายการทันก่อนรายการหายไป
+              onBlur={() => setTimeout(() => setLocationSuggestions([]), 150)}
+              onChange={(e) => {
+                setFilter("location", e.target.value);
+                setLocationSuggestions(locationOptions(e.target.value));
+              }}
+              placeholder="เลือกหรือพิมพ์ชื่อสถานที่"
               className={inputClass}
+            />
+            <LocationSuggestions
+              items={locationSuggestions}
+              onSelect={(location) => {
+                setFilter("location", location.name);
+                setLocationSuggestions([]);
+              }}
             />
           </div>
 
