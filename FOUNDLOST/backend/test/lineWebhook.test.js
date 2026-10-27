@@ -36,6 +36,7 @@ describe("POST /api/line/webhook", () => {
   let repo;
   let api;
   let scheduled;
+  let menuSwitches;
 
   const post = (payload, { signature, rawBody } = {}) => {
     const body = rawBody ?? JSON.stringify(payload);
@@ -69,12 +70,14 @@ describe("POST /api/line/webhook", () => {
     process.env.APP_BASE_URL = "https://lostfound.example.test";
     repo = createMemoryRepo();
     scheduled = [];
+    menuSwitches = [];
     const linking = createAccountLinking({ repo, ttlMinutes: () => 15 });
     const webhook = createWebhookHandler({
       repo,
       client,
       linking,
       getConfig: getLineConfig,
+      richMenus: { apply: async (lineUserId, linked) => menuSwitches.push([lineUserId, linked]) },
       schedule: (fn) => scheduled.push(fn),
       logger: silent,
     });
@@ -185,6 +188,55 @@ describe("POST /api/line/webhook", () => {
     await flush();
     assert.equal(repo._state.accounts.get("Uline-user-1").student_id, null);
     assert.match(replies()[1].body.messages[0].text, /ยกเลิกการเชื่อมบัญชีแล้ว/);
+    assert.deepEqual(menuSwitches, [["Uline-user-1", false]], "ยกเลิกแล้วกลับเป็นเมนูปุ่ม \"เชื่อมบัญชี\"");
+  });
+
+  test("follow / พิมพ์ \"เชื่อมบัญชี\" ของผู้ที่เชื่อมแล้ว → สลับเป็นเมนูปุ่ม \"ยกเลิกการเชื่อม\"", async () => {
+    await repo.upsertFollow({ lineUserId: "Uline-user-1" });
+    repo._state.accounts.get("Uline-user-1").student_id = "6510000001";
+    await post({ events: [event("follow")] });
+    await post({ events: [event("message", { message: { type: "text", id: "5", text: "เชื่อมบัญชี" } })] });
+    await flush();
+    assert.deepEqual(menuSwitches, [
+      ["Uline-user-1", true],
+      ["Uline-user-1", true],
+    ]);
+    assert.match(replies()[1].body.messages[0].text, /เชื่อมกับบัญชีเว็บแอปแล้ว/);
+  });
+
+  test("ปุ่ม \"ยกเลิกการเชื่อม\" ในเมนู → ถามยืนยันก่อน / ไม่ยกเลิก → คงการเชื่อม / ยืนยัน → ยกเลิกและสลับเมนู", async () => {
+    await repo.upsertFollow({ lineUserId: "Uline-user-1" });
+    repo._state.accounts.get("Uline-user-1").student_id = "6510000001";
+    const postback = (data) => event("postback", { postback: { data } });
+
+    await post({ events: [postback("action=unlink_prompt")] });
+    await flush();
+    const confirm = replies()[0].body.messages[0];
+    assert.equal(confirm.template.type, "confirm");
+    assert.deepEqual(
+      confirm.template.actions.map((a) => a.data),
+      ["action=unlink", "action=unlink_cancel"]
+    );
+    assert.equal(repo._state.accounts.get("Uline-user-1").student_id, "6510000001", "ยังไม่ยกเลิกจนกว่าจะยืนยัน");
+
+    await post({ events: [postback("action=unlink_cancel")] });
+    await flush();
+    assert.equal(repo._state.accounts.get("Uline-user-1").student_id, "6510000001");
+    assert.match(replies()[1].body.messages[0].text, /ยังเชื่อมบัญชีอยู่/);
+
+    await post({ events: [postback("action=unlink")] });
+    await flush();
+    assert.equal(repo._state.accounts.get("Uline-user-1").student_id, null);
+    assert.match(replies()[2].body.messages[0].text, /ยกเลิกการเชื่อมบัญชีแล้ว/);
+    assert.deepEqual(menuSwitches, [["Uline-user-1", false]]);
+  });
+
+  test("กดปุ่ม \"ยกเลิกการเชื่อม\" ทั้งที่ยังไม่ได้เชื่อม (เมนูค้าง) → แจ้งว่ายังไม่เชื่อม และคืนเมนูเริ่มต้น", async () => {
+    await repo.upsertFollow({ lineUserId: "Uline-user-1" });
+    await post({ events: [event("postback", { postback: { data: "action=unlink_prompt" } })] });
+    await flush();
+    assert.match(replies()[0].body.messages[0].text, /ยังไม่ได้เชื่อม/);
+    assert.deepEqual(menuSwitches, [["Uline-user-1", false]]);
   });
 
   test("ข้อความอื่นได้คำแนะนำการใช้งาน และ event จากกลุ่มถูกข้าม", async () => {

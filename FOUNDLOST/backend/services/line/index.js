@@ -7,10 +7,12 @@ const { createLineRepository } = require("./lineRepository");
 const { createAccountLinking } = require("./accountLinking");
 const { createWebhookHandler } = require("./webhook");
 const { createMatchDelivery } = require("./matchDelivery");
+const { createRichMenuSwitcher } = require("./richMenu");
 
 const repo = createLineRepository(db);
 const linking = createAccountLinking({ repo, ttlMinutes: () => getLineConfig().linkTokenTtlMinutes });
-const webhook = createWebhookHandler({ repo, client, linking, getConfig: getLineConfig });
+const richMenus = createRichMenuSwitcher({ client, isConfigured: isMessagingConfigured });
+const webhook = createWebhookHandler({ repo, client, linking, getConfig: getLineConfig, richMenus });
 const matchDelivery = createMatchDelivery({ repo, client, isConfigured: isMessagingConfigured });
 
 // งานดูแลระบบเป็นระยะ: ลองส่งใหม่ + ล้าง event/รหัสเชื่อมเก่า
@@ -23,4 +25,4 @@ const startLineBackgroundJobs = () => {
   cleanup.unref();
 };
 
-module.exports = { repo, linking, webhook, matchDelivery, startLineBackgroundJobs };
+module.exports = { repo, linking, richMenus, webhook, matchDelivery, startLineBackgroundJobs };

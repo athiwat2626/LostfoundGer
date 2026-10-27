@@ -12,9 +12,14 @@ const COMMANDS = [
 ];
 
 /**
- * @param {{ repo, client, linking, getConfig: () => object, schedule?: (fn) => void, logger?: Console }} deps
+ * @param {{ repo, client, linking, getConfig: () => object, richMenus?: { apply }, schedule?: (fn) => void, logger?: Console }} deps
  */
-const createWebhookHandler = ({ repo, client, linking, getConfig, schedule = setImmediate, logger = console }) => {
+const createWebhookHandler = ({ repo, client, linking, getConfig, richMenus = null, schedule = setImmediate, logger = console }) => {
+  // สลับ Rich Menu ตามสถานะการเชื่อม (apply ไม่ throw)
+  const switchMenu = async (lineUserId, linked) => {
+    if (richMenus) await richMenus.apply(lineUserId, linked);
+  };
+
   const reply = async (replyToken, replyMessages) => {
     if (!replyToken || !getConfig().channelAccessToken) return;
     try {
@@ -50,6 +55,7 @@ const createWebhookHandler = ({ repo, client, linking, getConfig, schedule = set
     const { linkTokenTtlMinutes } = getConfig();
 
     if (account.student_id) {
+      await switchMenu(lineUserId, true);
       await reply(event.replyToken, messages.welcomeMessages({ linked: true, displayName: account.display_name }));
     } else {
       const { token } = await linking.issueLinkToken(lineUserId);
@@ -66,6 +72,20 @@ const createWebhookHandler = ({ repo, client, linking, getConfig, schedule = set
     logger.info(`[line] unfollow ${maskId(event.source.userId)}`);
   };
 
+  const unlinkAndReply = async (event) => {
+    const lineUserId = event.source.userId;
+    const unlinked = await repo.unlinkByLineUser(lineUserId);
+    logger.info(`[line] unlink via chat ${maskId(lineUserId)} changed=${Boolean(unlinked)}`);
+    await switchMenu(lineUserId, false);
+    return reply(event.replyToken, [
+      messages.text(
+        unlinked
+          ? "ยกเลิกการเชื่อมบัญชีแล้ว ระบบจะไม่ส่งแจ้งเตือนของบัญชีเว็บแอปมาที่ LINE นี้อีก\nพิมพ์ \"เชื่อมบัญชี\" เมื่อต้องการเชื่อมใหม่"
+          : "บัญชี LINE นี้ยังไม่ได้เชื่อมกับบัญชีเว็บแอป\nพิมพ์ \"เชื่อมบัญชี\" เพื่อเริ่มเชื่อม"
+      ),
+    ]);
+  };
+
   const handleText = async (event) => {
     const lineUserId = event.source.userId;
     const input = String(event.message.text || "").trim();
@@ -77,6 +97,7 @@ const createWebhookHandler = ({ repo, client, linking, getConfig, schedule = set
 
     if (command === "link") {
       if (account.student_id) {
+        await switchMenu(lineUserId, true);
         return reply(event.replyToken, [
           messages.text("บัญชี LINE นี้เชื่อมกับบัญชีเว็บแอปแล้ว ✅\nหากต้องการเชื่อมกับบัญชีอื่น พิมพ์ \"ยกเลิกการเชื่อม\" ก่อน"),
         ]);
@@ -84,17 +105,7 @@ const createWebhookHandler = ({ repo, client, linking, getConfig, schedule = set
       return reply(event.replyToken, [await linkPrompt(lineUserId)]);
     }
 
-    if (command === "unlink") {
-      const unlinked = await repo.unlinkByLineUser(lineUserId);
-      logger.info(`[line] unlink via chat ${maskId(lineUserId)} changed=${Boolean(unlinked)}`);
-      return reply(event.replyToken, [
-        messages.text(
-          unlinked
-            ? "ยกเลิกการเชื่อมบัญชีแล้ว ระบบจะไม่ส่งแจ้งเตือนของบัญชีเว็บแอปมาที่ LINE นี้อีก\nพิมพ์ \"เชื่อมบัญชี\" เมื่อต้องการเชื่อมใหม่"
-            : "บัญชี LINE นี้ยังไม่ได้เชื่อมกับบัญชีเว็บแอป\nพิมพ์ \"เชื่อมบัญชี\" เพื่อเริ่มเชื่อม"
-        ),
-      ]);
-    }
+    if (command === "unlink") return unlinkAndReply(event);
 
     if (command === "status") {
       return reply(event.replyToken, [
@@ -109,12 +120,34 @@ const createWebhookHandler = ({ repo, client, linking, getConfig, schedule = set
     return reply(event.replyToken, [messages.text(messages.HELP_TEXT)]);
   };
 
+  // postback จากปุ่ม "ยกเลิกการเชื่อมบัญชี" ใน Rich Menu และปุ่มยืนยันที่บอทส่งกลับ
+  const handlePostback = async (event) => {
+    const lineUserId = event.source.userId;
+    const action = new URLSearchParams(String(event.postback?.data || "")).get("action");
+
+    if (action === "unlink_prompt") {
+      const account = await repo.findAccountByLineUser(lineUserId);
+      if (!account?.student_id) {
+        await switchMenu(lineUserId, false);
+        return reply(event.replyToken, [
+          messages.text("บัญชี LINE นี้ยังไม่ได้เชื่อมกับบัญชีเว็บแอป\nพิมพ์ \"เชื่อมบัญชี\" เพื่อเริ่มเชื่อม"),
+        ]);
+      }
+      return reply(event.replyToken, [messages.unlinkConfirmMessage()]);
+    }
+    if (action === "unlink") return unlinkAndReply(event);
+    if (action === "unlink_cancel") {
+      return reply(event.replyToken, [messages.text("ยังเชื่อมบัญชีอยู่ตามเดิม ✅")]);
+    }
+  };
+
   const dispatch = async (event) => {
     // รองรับเฉพาะแชต 1:1 (บอทไม่ได้ออกแบบให้ใช้ในกลุ่ม)
     if (event.source?.type !== "user" || !event.source.userId) return;
     if (event.type === "follow") return handleFollow(event);
     if (event.type === "unfollow") return handleUnfollow(event);
     if (event.type === "message" && event.message?.type === "text") return handleText(event);
+    if (event.type === "postback") return handlePostback(event);
   };
 
   const processEvents = async (events) => {

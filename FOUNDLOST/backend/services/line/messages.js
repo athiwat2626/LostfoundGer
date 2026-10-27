@@ -60,6 +60,20 @@ const welcomeMessages = ({ linked, token, displayName, ttlMinutes }) => {
   ];
 };
 
+// ถามยืนยันก่อนยกเลิกการเชื่อม (data ต้องตรงกับ handlePostback ใน webhook.js)
+const unlinkConfirmMessage = () => ({
+  type: "template",
+  altText: "ยืนยันยกเลิกการเชื่อมบัญชี LINE กับเว็บแอป?",
+  template: {
+    type: "confirm",
+    text: "ยกเลิกการเชื่อมบัญชี LINE กับเว็บแอป?\nหลังยกเลิกจะไม่ได้รับแจ้งเตือนทาง LINE จนกว่าจะเชื่อมใหม่",
+    actions: [
+      { type: "postback", label: "ยกเลิกการเชื่อม", data: "action=unlink", displayText: "ยืนยันยกเลิกการเชื่อม" },
+      { type: "postback", label: "ไม่ยกเลิก", data: "action=unlink_cancel", displayText: "ไม่ยกเลิก" },
+    ],
+  },
+});
+
 const HELP_TEXT =
   "คำสั่งที่ใช้ได้\n• เชื่อมบัญชี — ขอลิงก์เชื่อมบัญชีเว็บแอป\n• สถานะ — ดูสถานะการเชื่อมบัญชี\n• ยกเลิกการเชื่อม — เลิกเชื่อม LINE กับบัญชีเว็บแอป\n\nหรือใช้เมนูด้านล่างเพื่อเปิดหน้าต่าง ๆ ของเว็บแอป";
 
@@ -155,6 +169,7 @@ module.exports = {
   linkUrl,
   linkButtonMessage,
   welcomeMessages,
+  unlinkConfirmMessage,
   HELP_TEXT,
   MATCH_HEADLINE,
   DISCLAIMER,

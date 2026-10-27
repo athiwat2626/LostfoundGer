@@ -1,6 +1,7 @@
 <!doctype html>
 <!-- แม่แบบภาพ Rich Menu 2500×1686 px — แปลงเป็น PNG ด้วย: npm run line:richmenu:image
-     ตำแหน่ง/ลำดับช่องต้องตรงกับ MENU_ITEMS ใน services/line/richMenu.js -->
+     ตำแหน่ง/ลำดับช่องต้องตรงกับ MENU_ITEMS และ LINK_SLOT_INDEX ใน services/line/richMenu.js
+     เปิดแบบปกติ = เมนูยังไม่เชื่อมบัญชี / เปิดด้วย #linked = เมนูเชื่อมบัญชีแล้ว -->
 <html lang="th">
 <head>
 <meta charset="utf-8">
@@ -35,14 +36,25 @@
     font-family: "Segoe UI Emoji", "Noto Color Emoji", "Apple Color Emoji", sans-serif;
     font-size: 190px; line-height: 1;
   }
-  .label { font-size: 110px; font-weight: 700; color: #0f172a; line-height: 1.05; }
+  .label { font-size: 110px; font-weight: 700; color: #0f172a; line-height: 1.05; white-space: nowrap; }
   .hint { font-size: 54px; font-weight: 400; color: #64748b; line-height: 1; margin-top: -18px; }
   .lost .icon { background: #ffedd5; }
   .search .icon { background: #e0f2fe; }
   .mine .icon { background: #ede9fe; }
   .found .icon { background: #dcfce7; }
-  .bell .icon { background: #fef9c3; }
   .account .icon { background: #ccfbf1; }
+
+  /* ช่องเชื่อม/ยกเลิกการเชื่อม — แสดงทีละแบบตามสถานะ */
+  .link .card { background: #06c755; }          /* สีเขียว LINE */
+  .link .icon { background: rgba(255, 255, 255, 0.22); }
+  .link .label, .link .hint { color: #ffffff; }
+  .unlink .card { background: #fff1f2; }
+  .unlink .icon { background: #ffe4e6; }
+  .unlink .label { color: #be123c; font-size: 96px; }
+  .unlink .hint { color: #9f1239; }
+  .unlink { display: none; }
+  body.linked .unlink { display: block; }
+  body.linked .link { display: none; }
 </style>
 </head>
 <body>
@@ -50,7 +62,11 @@
   <div class="cell search"><div class="card"><div class="icon">🔎</div><div class="label">ค้นหาของ</div><div class="hint">Search items</div></div></div>
   <div class="cell mine"><div class="card"><div class="icon">📦</div><div class="label">รายการของฉัน</div><div class="hint">My posts</div></div></div>
   <div class="cell found"><div class="card"><div class="icon">📍</div><div class="label">แจ้งพบของ</div><div class="hint">Report found item</div></div></div>
-  <div class="cell bell"><div class="card"><div class="icon">🔔</div><div class="label">การแจ้งเตือน</div><div class="hint">Notifications</div></div></div>
+  <div class="cell link"><div class="card"><div class="icon">🔗</div><div class="label">เชื่อมบัญชี</div><div class="hint">Link LINE account</div></div></div>
+  <div class="cell unlink"><div class="card"><div class="icon">🔓</div><div class="label">ยกเลิกการเชื่อม</div><div class="hint">Unlink LINE account</div></div></div>
   <div class="cell account"><div class="card"><div class="icon">👤</div><div class="label">บัญชีของฉัน</div><div class="hint">My account &amp; LINE</div></div></div>
+  <script>
+    if (location.hash === "#linked") document.body.classList.add("linked");
+  </script>
 </body>
 </html>

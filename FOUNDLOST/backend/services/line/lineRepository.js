@@ -77,6 +77,14 @@ const createLineRepository = (db) => {
         )
       ).rows[0] || null,
 
+    // LINE ที่เชื่อมบัญชีแล้วและยังเป็นเพื่อน — ใช้ผูก Rich Menu "เชื่อมแล้ว" ตอน deploy เมนู
+    listLinkedLineUserIds: async () =>
+      (
+        await db.query(
+          "SELECT line_user_id FROM line_accounts WHERE student_id IS NOT NULL AND is_following = TRUE ORDER BY linked_at"
+        )
+      ).rows.map((row) => row.line_user_id),
+
     // ─── รหัสเชื่อมบัญชี ─────────────────────────────────────────────────────
     // ออกรหัสใหม่แล้วยกเลิกรหัสเก่าที่ยังไม่ใช้ (มีรหัสที่ใช้ได้ทีละ 1 รหัสต่อบัญชี LINE)
     createLinkToken: async ({ tokenHash, lineUserId, expiresAt }) => {

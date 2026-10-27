@@ -119,6 +119,14 @@ const getDefaultRichMenuId = async () => {
 };
 const setDefaultRichMenu = (richMenuId) =>
   request(`${API}/user/all/richmenu/${encodeURIComponent(richMenuId)}`, { method: "POST" });
+// เมนูรายคน (ทับเมนูเริ่มต้น) — ยกเลิกแล้วผู้ใช้กลับไปเห็นเมนูเริ่มต้น
+const linkRichMenuToUser = (userId, richMenuId) =>
+  request(`${API}/user/${encodeURIComponent(userId)}/richmenu/${encodeURIComponent(richMenuId)}`, { method: "POST" });
+const unlinkRichMenuFromUser = (userId) =>
+  request(`${API}/user/${encodeURIComponent(userId)}/richmenu`, { method: "DELETE" });
+// ผูกเมนูให้หลายคนพร้อมกัน (สูงสุด 500 คนต่อครั้ง)
+const bulkLinkRichMenu = (richMenuId, userIds) =>
+  request(`${API}/richmenu/bulk/link`, { method: "POST", body: { richMenuId, userIds } });
 
 module.exports = {
   LineApiError,
@@ -134,4 +142,7 @@ module.exports = {
   hasRichMenuImage,
   getDefaultRichMenuId,
   setDefaultRichMenu,
+  linkRichMenuToUser,
+  unlinkRichMenuFromUser,
+  bulkLinkRichMenu,
 };
