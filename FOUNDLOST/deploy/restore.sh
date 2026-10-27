@@ -10,6 +10,8 @@ set -euo pipefail
 cd "$(dirname "$0")/.."
 
 COMPOSE=(docker compose -f compose.deploy.yml)
+# อยู่ร่วม VPS กับ Caddy ของโปรเจกต์อื่น (ดู deploy/compose.shared-caddy.yml)
+grep -qs '^SHARED_CADDY_NETWORK=.' .env && COMPOSE+=(-f deploy/compose.shared-caddy.yml)
 SRC="${1:?ระบุโฟลเดอร์ backup เช่น ~/foundlost-backups/20261027-030000}"
 MODE="${2:-}"
 [[ -f "$SRC/db.dump" ]] || { echo "ไม่พบ $SRC/db.dump" >&2; exit 1; }
