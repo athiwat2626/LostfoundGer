@@ -111,14 +111,15 @@ const TrendChart = ({ points, range }) => {
   const tipLeft = hovered ? Math.min(Math.max(geo.x(hover), 90), width - 90) : 0;
 
   return (
-    <div ref={boxRef} className="relative w-full">
+    // min-w-0 + max-w-full: กราฟต้องไม่ดันกล่องให้กว้างเกินจอ (ไม่งั้นจอมือถือเลื่อนออกข้างได้)
+    <div ref={boxRef} className="relative w-full min-w-0">
       <svg
         width={width}
         height={HEIGHT}
         viewBox={`0 0 ${width} ${HEIGHT}`}
         role="img"
         aria-label="กราฟจำนวนการแจ้งของหายและของพบตามช่วงเวลา"
-        className="block"
+        className="block max-w-full"
       >
         {/* เส้นกริดและแกน Y */}
         {geo.gridValues.map((v) => (
