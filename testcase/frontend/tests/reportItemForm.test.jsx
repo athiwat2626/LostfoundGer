@@ -13,6 +13,7 @@ vi.mock("react-leaflet", () => ({
   Marker: () => null,
   CircleMarker: () => null,
   Tooltip: () => null,
+  ZoomControl: () => null,
   useMapEvents: () => null,
 }));
 

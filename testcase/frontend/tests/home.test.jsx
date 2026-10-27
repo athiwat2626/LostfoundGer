@@ -1,5 +1,5 @@
 // FE-HM-xx : หน้าหลัก (page/Home.jsx) — เมนู, ค้นหา, แท็บประเภท, ค้นหาด่วน, การ์ด, เลขหน้า, ป๊อปอัพรายละเอียด
-import { act, fireEvent, screen, within } from "@testing-library/react";
+import { act, fireEvent, screen, waitFor, within } from "@testing-library/react";
 import axios from "axios";
 import Home from "@app/page/Home";
 import { api, mockRoutes } from "./axiosMock";
@@ -82,9 +82,9 @@ describe("Home", () => {
 
   test.each([
     ["กระเป๋า", ["กระเป๋าสตางค์หนัง"]],
-    ["Key", ["พวงกุญแจรถ Honda"]],
+    ["กุญแจ", ["พวงกุญแจรถ Honda"]],
     ["อิเล็กทรอนิกส์", ["iPad Air สีฟ้า", "Apple Watch SE"]],
-    ["เอกสาร", ["บัตรนิสิต"]],
+    ["เอกสาร / บัตร", ["บัตรนิสิต"]],
     ["อื่นๆ", ["ร่มพับ"]],
   ])("FE-HM-05 ค้นหาด่วน '%s' → กรองตามหมวด/ชื่อ", async (chip, expected) => {
     await renderHome();
@@ -95,11 +95,12 @@ describe("Home", () => {
 
   test("FE-HM-06 พิมพ์ค้นหา → กรองตามชื่อ/สถานที่ ไม่พบแสดงข้อความ", async () => {
     await renderHome();
+    // ช่องค้นหาส่งคำค้นหลังหยุดพิมพ์ 300ms
     fireEvent.change(searchBox(), { target: { value: "หอสมุด" } });
-    expect(cardTitles()).toEqual(["กระเป๋าสตางค์หนัง"]);
+    await waitFor(() => expect(cardTitles()).toEqual(["กระเป๋าสตางค์หนัง"]));
 
     fireEvent.change(searchBox(), { target: { value: "ไม่มีแน่นอน" } });
-    expect(screen.getByText("ไม่พบรายการที่ตรงกับการค้นหา")).toBeInTheDocument();
+    expect(await screen.findByText("ไม่พบรายการที่ตรงกับการค้นหา")).toBeInTheDocument();
   });
 
   test("FE-HM-07 เกิน 8 รายการ → แบ่งหน้า กดถัดไป/เลขหน้าได้ และปุ่มก่อนหน้าปิดในหน้าแรก", async () => {

@@ -1,5 +1,5 @@
 // FE-IP-xx : หน้ารายการของที่พบ (FoundPage) / ของที่หาย (LostPage) — ใช้ ItemListPage ร่วมกัน
-import { fireEvent, screen, within } from "@testing-library/react";
+import { fireEvent, screen, waitFor, within } from "@testing-library/react";
 import axios from "axios";
 import FoundPage from "@app/page/FoundPage";
 import LostPage from "@app/page/LostPage";
@@ -42,7 +42,8 @@ describe.each([
   test("FE-IP-02 ค้นหาด้วยชื่อสิ่งของ", async () => {
     await renderPage();
     fireEvent.change(screen.getByPlaceholderText(search), { target: { value: "กุญแจ" } });
-    expect(cards()).toHaveLength(1);
+    // ช่องค้นหาส่งคำค้นหลังหยุดพิมพ์ 300ms
+    await waitFor(() => expect(cards()).toHaveLength(1));
     expect(cards()[0]).toHaveTextContent("พวงกุญแจรถ");
   });
 
