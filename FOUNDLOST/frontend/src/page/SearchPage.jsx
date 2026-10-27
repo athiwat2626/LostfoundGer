@@ -59,7 +59,12 @@ const SearchPage = () => {
     setPage(1);
   };
   const setFilter = (name, value) => {
-    setFilters((prev) => ({ ...prev, [name]: value }));
+    setFilters((prev) => {
+      const next = { ...prev, [name]: value };
+      // พิมพ์วันที่เองได้ข้าม min/max ของช่อง → ถ้าช่วงกลับด้านให้สลับให้ถูก
+      if (next.from && next.to && next.from > next.to) [next.from, next.to] = [next.to, next.from];
+      return next;
+    });
     setPage(1);
   };
   const clearFilters = () => {

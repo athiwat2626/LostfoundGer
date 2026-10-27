@@ -1,5 +1,5 @@
 import axios from "axios";
-import { Briefcase, KeyRound, Smartphone, FileText, Shapes } from "lucide-react";
+import { Briefcase, KeyRound, Smartphone, Gem, FileText, Shapes } from "lucide-react";
 
 // ข้อมูลและฟังก์ชันช่วยของรายการของพบ/ของหาย (ใช้ร่วมกับ itemUi.jsx)
 // ตั้ง VITE_API_URL ใน frontend/.env เมื่อเปิดเว็บจากเครื่องอื่น (เช่น มือถือผ่านเมนู LINE) — ค่าเริ่มต้นคือ backend ในเครื่อง
@@ -50,14 +50,23 @@ export const formatThaiDate = (value, month = "short") => {
   return date.toLocaleDateString("th-TH", { day: "numeric", month, year: "numeric" });
 };
 
+// วันที่หาย/พบย้อนหลังได้ไม่เกิน 1 ปี (YYYY-MM-DD ตามเวลาเครื่องผู้ใช้ ใช้กับ <input type="date">)
+export const todayInput = () => new Date().toLocaleDateString("sv-SE");
+export const oldestItemDate = () => {
+  const date = new Date();
+  date.setFullYear(date.getFullYear() - 1);
+  return date.toLocaleDateString("sv-SE");
+};
+
 // ─── ค้นหาด่วน ─────────────────────────────────────────────────────────────────
 // "อื่นๆ" คือรายการที่ไม่เข้าหมวดใดด้านบน
 export const QUICK_FILTERS = [
   { id: "all", label: "ทั้งหมด", icon: null, tone: "bg-[#475569] hover:bg-[#334155]", keywords: [] },
   { id: "bag", label: "กระเป๋า", icon: Briefcase, tone: "bg-green-500 hover:bg-green-600", keywords: ["กระเป๋า", "bag", "wallet"] },
-  { id: "key", label: "Key", icon: KeyRound, tone: "bg-orange-400 hover:bg-orange-500", keywords: ["กุญแจ", "key"] },
+  { id: "key", label: "กุญแจ", icon: KeyRound, tone: "bg-orange-400 hover:bg-orange-500", keywords: ["กุญแจ", "key"] },
   { id: "electronic", label: "อิเล็กทรอนิกส์", icon: Smartphone, tone: "bg-indigo-500 hover:bg-indigo-600", keywords: ["อิเล็กทรอนิกส์", "โทรศัพท์", "phone", "laptop", "tablet"] },
-  { id: "document", label: "เอกสาร", icon: FileText, tone: "bg-purple-600 hover:bg-purple-700", keywords: ["เอกสาร", "บัตร", "document"] },
+  { id: "jewelry", label: "เครื่องประดับ", icon: Gem, tone: "bg-fuchsia-600 hover:bg-fuchsia-700", keywords: ["เครื่องประดับ", "แหวน", "สร้อย", "ต่างหู", "กำไล", "jewelry"] },
+  { id: "document", label: "เอกสาร / บัตร", icon: FileText, tone: "bg-purple-600 hover:bg-purple-700", keywords: ["เอกสาร", "บัตร", "document"] },
   { id: "other", label: "อื่นๆ", icon: Shapes, tone: "bg-rose-800 hover:bg-rose-900", keywords: [] },
 ];
 
