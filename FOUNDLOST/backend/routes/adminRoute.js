@@ -3,7 +3,6 @@ const router = express.Router();
 const adminController = require("../controller/adminController");
 const auditController = require("../controller/auditController");
 const settingsController = require("../controller/settingsController");
-const surveyController = require("../controller/surveyController");
 
 router.get("/dashboard/stats", adminController.getDashboardStats);
 router.get("/dashboard/trend", adminController.getTrend);
@@ -32,9 +31,5 @@ router.get("/audit-logs", auditController.getAuditLogs);
 // ค่าระบบ (การจับคู่, เกียรติบัตร, หมวดหมู่, จุดรับฝาก, ประกาศ, ปิดปรับปรุง)
 router.get("/settings", settingsController.getAdminSettings);
 router.put("/settings", settingsController.updateSettings);
-
-// แบบประเมินความพึงพอใจ: สรุปผล (ค่าเฉลี่ย/S.D./ระดับ) และส่งออก CSV
-router.get("/survey/summary", surveyController.getSurveySummary);
-router.get("/survey/export", surveyController.exportSurvey);
 
 module.exports = router;

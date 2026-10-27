@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Link, Outlet, useLocation, useNavigate } from "react-router-dom";
-import { Home, Search, PackageCheck, ClipboardList, Users, Settings, Bell, LogOut, ShieldCheck, Shuffle, Menu, X, History, ClipboardCheck } from "lucide-react";
+import { Home, Search, PackageCheck, ClipboardList, Users, Settings, Bell, LogOut, ShieldCheck, Shuffle, Menu, X, History } from "lucide-react";
 import adminApi from "./api/adminApi";
 import ConfirmLogoutModal from "../component/ConfirmLogoutModal";
 
@@ -12,7 +12,6 @@ const NAV_ITEMS = [
   { to: "/admin/reports", label: "ตรวจสอบรายการ", icon: ClipboardList, badge: true },
   { to: "/admin/users", label: "ผู้ใช้งาน", icon: Users },
   { to: "/admin/audit", label: "ประวัติการดำเนินการ", icon: History },
-  { to: "/admin/survey", label: "แบบประเมิน", icon: ClipboardCheck },
   { to: "/admin/settings", label: "ตั้งค่า", icon: Settings },
 ];
 

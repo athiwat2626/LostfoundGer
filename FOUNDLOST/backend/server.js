@@ -29,7 +29,6 @@ const line = require("./services/line");
 const lineRoute = require("./routes/lineRoute");
 const maintenanceGuard = require("./middleware/maintenance");
 const { getPublicSettings } = require("./controller/settingsController");
-const surveyRoute = require("./routes/surveyRoute");
 const { createGoogleLogin } = require("./controller/googleAuthController");
 
 
@@ -142,7 +141,6 @@ app.use("/api/me", profileRoute);
 app.use("/api/claims", claimRoute);
 app.use("/api/my-items", myItemRoute);
 app.use("/api/inbox", inboxRoute);
-app.use("/api/survey", surveyRoute);
 
 // แปลงข้อผิดพลาดจากการอัปโหลดให้เป็นข้อความที่ client เข้าใจได้
 app.use((error, req, res, next) => {
@@ -591,8 +589,6 @@ const startServer = async () => {
     await db.query(require("fs").readFileSync(path.join(__dirname, "sql", "audit.sql"), "utf8"));
     // ค่าระบบที่แอดมินปรับได้
     await db.query(require("fs").readFileSync(path.join(__dirname, "sql", "settings.sql"), "utf8"));
-    // แบบประเมินความพึงพอใจ
-    await db.query(require("fs").readFileSync(path.join(__dirname, "sql", "survey.sql"), "utf8"));
 
     // สร้างบัญชีแอดมินเริ่มต้นครั้งแรกที่ยังไม่มี (ไม่เขียนทับรหัสผ่านที่เปลี่ยนภายหลัง)
     if (process.env.ADMIN_SEED_EMAIL && process.env.ADMIN_SEED_PASSWORD) {
