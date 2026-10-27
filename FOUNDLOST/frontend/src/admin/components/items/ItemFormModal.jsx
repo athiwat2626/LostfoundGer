@@ -3,7 +3,7 @@ import { X, ImagePlus, Loader2 } from "lucide-react";
 import adminApi from "../../api/adminApi";
 import { useSiteSettings } from "../../../component/siteSettings";
 import { LocationSuggestions } from "../../../component/LocationSuggestions";
-import { searchLocations } from "../../../data/campusLocations";
+import { campusLocations, searchLocations } from "../../../data/campusLocations";
 import { ITEM_TYPES, toDateInput } from "./itemMeta";
 
 const inputClass =
@@ -48,6 +48,18 @@ const ItemFormModal = ({ type, item = null, onClose, onSaved }) => {
   useEffect(() => () => previewUrl && URL.revokeObjectURL(previewUrl), [previewUrl]);
 
   const setField = (field, value) => setForm((prev) => ({ ...prev, [field]: value }));
+
+  // ช่องว่าง → แสดงสถานที่ทั้งหมดให้เลือก / พิมพ์แล้ว → กรองตามคำที่พิมพ์
+  const locationOptions = (query) => (query.trim() ? searchLocations(query) : campusLocations);
+  // จุดรับฝากที่ตั้งไว้ในค่าระบบขึ้นก่อน ตามด้วยสถานที่ในมหาวิทยาลัย
+  const depositOptions = (query) => {
+    const q = query.trim().toLowerCase();
+    const points = depositPoints.filter((p) => p.name.toLowerCase().includes(q)).map((p) => ({ name: p.name }));
+    const pointNames = new Set(points.map((p) => p.name));
+    return [...points, ...locationOptions(query).filter((l) => !pointNames.has(l.name))];
+  };
+  // ปิดรายการเมื่อออกจากช่อง (หน่วงเล็กน้อยให้การคลิกเลือกทำงานก่อน)
+  const closeLater = (setter) => () => setTimeout(() => setter([]), 150);
 
   const handleSubmit = async (event) => {
     event.preventDefault();
@@ -150,10 +162,12 @@ const ItemFormModal = ({ type, item = null, onClose, onSaved }) => {
                 maxLength={255}
                 required
                 autoComplete="off"
-                placeholder="พิมพ์ชื่อสถานที่"
+                placeholder="เลือกหรือพิมพ์ชื่อสถานที่"
+                onFocus={(e) => setLocationSuggestions(locationOptions(e.target.value))}
+                onBlur={closeLater(setLocationSuggestions)}
                 onChange={(e) => {
                   setField(meta.locationField, e.target.value);
-                  setLocationSuggestions(searchLocations(e.target.value));
+                  setLocationSuggestions(locationOptions(e.target.value));
                 }}
                 className={inputClass}
               />
@@ -178,10 +192,12 @@ const ItemFormModal = ({ type, item = null, onClose, onSaved }) => {
               value={form.deposit_location}
               maxLength={255}
               autoComplete="off"
-              placeholder="เช่น กองกิจการนิสิต, ห้องสมุด"
+              placeholder="เลือกหรือพิมพ์ เช่น กองกิจการนิสิต, ห้องสมุด"
+              onFocus={(e) => setDepositSuggestions(depositOptions(e.target.value))}
+              onBlur={closeLater(setDepositSuggestions)}
               onChange={(e) => {
                 setField("deposit_location", e.target.value);
-                setDepositSuggestions(searchLocations(e.target.value));
+                setDepositSuggestions(depositOptions(e.target.value));
               }}
               className={inputClass}
             />
