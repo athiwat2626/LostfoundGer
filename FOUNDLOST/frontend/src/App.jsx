@@ -19,7 +19,6 @@ import SearchPage from "./page/SearchPage";
 import Profile from "./page/Profile";
 import LineLink from "./page/LineLink";
 import LineAddFriend from "./page/LineAddFriend";
-import Survey from "./page/Survey";
 import AdminLogin from "./admin/AdminLogin";
 import AdminProtectedRoute from "./admin/AdminProtectedRoute";
 import AdminLayout from "./admin/AdminLayout";
@@ -31,7 +30,6 @@ import AdminUsers from "./admin/pages/Users";
 import AdminSettings from "./admin/pages/Settings";
 import AdminMatches from "./admin/pages/Matches";
 import AdminAuditLog from "./admin/pages/AuditLog";
-import AdminSurvey from "./admin/pages/Survey";
 import MaintenanceGate from "./component/MaintenanceGate";
 
 // หน้าฝั่งผู้ใช้ทุกหน้าใช้ UserLayout (แถบเมนูซ้าย) ภายในตัวหน้าเอง
@@ -59,7 +57,6 @@ function App() {
         <Route path="/profile" element={protectedPage(<Profile />)} />
         <Route path="/line/link" element={protectedPage(<LineLink />)} />
         <Route path="/line/add" element={<LineAddFriend />} />
-        <Route path="/survey" element={<Survey />} />
         <Route path="/login" element={<Login />} />
         <Route path="/signup" element={<SignUp />} />
 
@@ -80,7 +77,6 @@ function App() {
           <Route path="reports" element={<AdminReviewCenter />} />
           <Route path="users" element={<AdminUsers />} />
           <Route path="audit" element={<AdminAuditLog />} />
-          <Route path="survey" element={<AdminSurvey />} />
           <Route path="settings" element={<AdminSettings />} />
         </Route>
       </Routes>
