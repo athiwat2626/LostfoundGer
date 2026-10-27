@@ -15,7 +15,7 @@ for f in .env backend.env; do
   [[ -f "$f" ]] || { echo "ไม่พบไฟล์ $f (ดู deploy/*.example)" >&2; exit 1; }
 done
 
-./deploy/backup.sh
+bash deploy/backup.sh
 
 if [[ -n "$TAG" ]]; then
   [[ "$TAG" =~ ^[A-Za-z0-9._-]+$ ]] || { echo "tag ไม่ถูกต้อง: $TAG" >&2; exit 1; }
