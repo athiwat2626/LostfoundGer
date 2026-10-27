@@ -5,7 +5,13 @@ const { getLineConfig } = require("../services/line/config");
 const { getBotInfo } = require("../services/line/lineClient");
 const line = require("../services/line");
 
-const controller = createLineController({ repo: line.repo, linking: line.linking, getConfig: getLineConfig, getBotInfo });
+const controller = createLineController({
+  repo: line.repo,
+  linking: line.linking,
+  getConfig: getLineConfig,
+  getBotInfo,
+  richMenus: line.richMenus,
+});
 
 // การเชื่อมบัญชี LINE และการแจ้งเตือนของผู้ใช้ — ต้องล็อกอิน
 // (webhook POST /api/line/webhook ลงทะเบียนแยกใน server.js เพราะต้องใช้ raw body)

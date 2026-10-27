@@ -5,11 +5,16 @@ const { LinkError } = require("../services/line/accountLinking");
 const DELIVERY_STATUSES = ["sending", "sent", "retry", "failed"];
 
 /**
- * @param {{ repo, linking, getConfig: () => object, logger?: Console }} deps
+ * @param {{ repo, linking, getConfig: () => object, richMenus?: { apply }, logger?: Console }} deps
  */
 const BOT_INFO_TTL_MS = 10 * 60 * 1000;
 
-const createLineController = ({ repo, linking, getConfig, getBotInfo = null, logger = console }) => {
+const createLineController = ({ repo, linking, getConfig, getBotInfo = null, richMenus = null, logger = console }) => {
+  // สลับ Rich Menu (ปุ่มเชื่อม/ยกเลิก) หลังตอบผู้ใช้แล้ว — apply ไม่ throw และไม่ต้องรอ
+  const switchMenu = (lineUserId, linked) => {
+    if (richMenus) richMenus.apply(lineUserId, linked);
+  };
+
   let botInfoCache = { at: 0, value: null };
 
   // ชื่อ/รูป OA จาก LINE (cache 10 นาที — ไม่เรียก LINE ทุกครั้งที่มีคนเปิดหน้า)
@@ -93,6 +98,7 @@ const createLineController = ({ repo, linking, getConfig, getBotInfo = null, log
       const { account, alreadyLinked } = await linking.confirmLink(req.body?.token, req.user.student_id);
       logger.info(`[line] account linked for ${req.user.student_id} (already=${alreadyLinked})`);
       res.status(200).json({ success: true, already_linked: alreadyLinked, line: publicAccount(account) });
+      switchMenu(account.line_user_id, true);
     } catch (error) {
       if (error instanceof LinkError) return sendLinkError(res, error);
       return serverError(res, "Error linking LINE account:", error);
@@ -106,6 +112,7 @@ const createLineController = ({ repo, linking, getConfig, getBotInfo = null, log
       if (!account) return res.status(404).json({ success: false, message: "บัญชีนี้ยังไม่ได้เชื่อม LINE" });
       logger.info(`[line] account unlinked by ${req.user.student_id}`);
       res.status(200).json({ success: true });
+      switchMenu(account.line_user_id, false);
     } catch (error) {
       return serverError(res, "Error unlinking LINE account:", error);
     }
