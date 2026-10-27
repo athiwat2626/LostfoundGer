@@ -21,6 +21,8 @@ services:
       # Named volume keeps PostgreSQL data after `docker compose down`.
       # Do not run `docker compose down -v` unless the database may be deleted.
       - postgres_data:/var/lib/postgresql/data
+      # สร้างตารางจาก database.sql อัตโนมัติ (ทำงานเฉพาะตอนสร้างฐานข้อมูลใหม่ครั้งแรก)
+      - ./backend/database.sql:/docker-entrypoint-initdb.d/01-schema.sql:ro
 
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]

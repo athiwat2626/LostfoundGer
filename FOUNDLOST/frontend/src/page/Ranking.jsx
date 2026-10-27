@@ -4,10 +4,12 @@ import { useLocation, useNavigate } from "react-router-dom";
 import { MapContainer, TileLayer, CircleMarker, Tooltip } from "react-leaflet";
 import "leaflet/dist/leaflet.css";
 import { Info, Heart, MapPin, Crown, Star, User } from "lucide-react";
-import { campusLocations } from "../data/campusLocations";
+import { findLocationCoords } from "../data/campusLocations";
+import UserLayout from "../component/UserLayout";
+import { API_URL } from "../component/itemUtils";
 
 const AVATAR_COLORS = [
-  "bg-emerald-100 text-emerald-700",
+  "bg-brand-50 text-brand",
   "bg-amber-100 text-amber-700",
   "bg-sky-100 text-sky-700",
   "bg-rose-100 text-rose-700",
@@ -19,22 +21,11 @@ const avatarColor = (name) => {
   return AVATAR_COLORS[code % AVATAR_COLORS.length];
 };
 
-const findLocationCoords = (name) => {
-  if (!name) return null;
-  const normalized = name.trim().toLowerCase();
-  const exact = campusLocations.find((l) => l.name.toLowerCase() === normalized);
-  if (exact) return exact.position;
-  const partial = campusLocations.find(
-    (l) => l.name.toLowerCase().includes(normalized) || normalized.includes(l.name.toLowerCase())
-  );
-  return partial ? partial.position : null;
-};
-
 const Avatar = ({ person, className }) => {
   if (person.profile_image) {
     return (
       <img
-        src={`http://localhost:3000${person.profile_image}`}
+        src={`${API_URL}${person.profile_image}`}
         alt=""
         className={`${className} rounded-full object-cover border-2 border-white shadow`}
       />
@@ -67,7 +58,7 @@ const PodiumSlot = ({ person, rank }) => {
         {person.first_name} {person.last_name}
       </p>
       {person.student_id && <p className="text-[11px] text-slate-400">ID: {person.student_id}</p>}
-      <span className="mt-1 rounded-full bg-emerald-50 px-3 py-1 text-xs font-bold text-emerald-700">
+      <span className="mt-1 rounded-full bg-brand-50 px-3 py-1 text-xs font-bold text-brand">
         {person.successful_returns} ครั้ง
       </span>
     </div>
@@ -88,8 +79,8 @@ const Ranking = () => {
     const loadRankings = async () => {
       try {
         const [returnerResponse, locationResponse] = await Promise.all([
-          axios.get("http://localhost:3000/api/rankings/returners"),
-          axios.get("http://localhost:3000/api/rankings/lost-locations"),
+          axios.get(`${API_URL}/api/rankings/returners`),
+          axios.get(`${API_URL}/api/rankings/lost-locations`),
         ]);
         setReturners(returnerResponse.data);
         setLocations(locationResponse.data);
@@ -113,8 +104,8 @@ const Ranking = () => {
   const maxLostCount = Math.max(...locations.map((l) => l.lost_count), 1);
 
   return (
-    <main className="min-h-screen bg-[#f7f3ea] px-4 py-6 sm:px-6">
-      <div className="mx-auto max-w-lg">
+    <UserLayout>
+      <div className="mx-auto mt-8 max-w-2xl">
         {/* Header */}
         <header className="mb-4 flex items-center justify-between">
           <div className="h-9 w-9" />
@@ -138,7 +129,7 @@ const Ranking = () => {
             type="button"
             onClick={() => navigate("/ranking")}
             className={`flex items-center justify-center gap-1.5 rounded-xl px-3 py-2.5 text-sm font-semibold transition ${
-              activeTab === "returners" ? "bg-emerald-700 text-white shadow" : "text-slate-500 hover:bg-slate-50"
+              activeTab === "returners" ? "gradient-primary text-white" : "text-slate-500 hover:bg-slate-50"
             }`}
           >
             <Heart size={15} fill={activeTab === "returners" ? "currentColor" : "none"} />
@@ -148,7 +139,7 @@ const Ranking = () => {
             type="button"
             onClick={() => navigate("/ranking/locations")}
             className={`flex items-center justify-center gap-1.5 rounded-xl px-3 py-2.5 text-sm font-semibold transition ${
-              activeTab === "locations" ? "bg-emerald-700 text-white shadow" : "text-slate-500 hover:bg-slate-50"
+              activeTab === "locations" ? "gradient-primary text-white" : "text-slate-500 hover:bg-slate-50"
             }`}
           >
             <MapPin size={15} />
@@ -158,17 +149,17 @@ const Ranking = () => {
 
         {/* Info banner */}
         {showInfo && (
-          <div className="mb-4 flex items-start gap-3 rounded-2xl border border-emerald-100 bg-emerald-50 px-4 py-3">
-            <div className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-white text-emerald-500 shadow-sm">
+          <div className="mb-4 flex items-start gap-3 rounded-2xl border border-brand-50 bg-brand-50 px-4 py-3">
+            <div className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-white text-brand shadow-sm">
               <Star size={16} fill="currentColor" />
             </div>
             <div>
-              <p className="text-sm font-semibold text-emerald-800">
+              <p className="text-sm font-semibold text-brand-dark">
                 {activeTab === "returners"
                   ? "อันดับคำนวณจากจำนวนครั้งที่คืนของสำเร็จ"
                   : "อันดับคำนวณจากจำนวนครั้งที่มีการแจ้งของหายในแต่ละสถานที่"}
               </p>
-              <p className="mt-0.5 text-xs text-emerald-700/80">
+              <p className="mt-0.5 text-xs text-brand/80">
                 {activeTab === "returners"
                   ? "ยิ่งช่วยคืนของให้เจ้าของสำเร็จมาก อันดับก็ยิ่งสูงขึ้น"
                   : "ข้อมูลนี้ช่วยให้ทุกคนระมัดระวังของหายในจุดที่เกิดขึ้นบ่อย"}
@@ -219,7 +210,7 @@ const Ranking = () => {
                             คืนของสำเร็จ {person.successful_returns} ครั้ง
                           </p>
                         </div>
-                        <span className="shrink-0 text-lg font-extrabold text-emerald-600">
+                        <span className="shrink-0 text-lg font-extrabold text-brand">
                           {person.successful_returns}
                         </span>
                       </div>
@@ -312,7 +303,7 @@ const Ranking = () => {
           </>
         )}
       </div>
-    </main>
+    </UserLayout>
   );
 };
 

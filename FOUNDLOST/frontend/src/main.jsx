@@ -2,6 +2,10 @@ import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import "./index.css";
 import App from "./App.jsx";
+import { initDisplayPrefs } from "./component/displayPrefs";
+
+// ใช้ธีมและขนาดตัวอักษรที่ผู้ใช้ตั้งไว้ก่อนแสดงผลครั้งแรก (ไม่ให้หน้ากระพริบ)
+initDisplayPrefs();
 
 createRoot(document.getElementById("root")).render(
   <StrictMode>

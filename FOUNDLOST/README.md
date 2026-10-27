@@ -31,6 +31,12 @@ Frontend: `http://localhost:5173`
 
 Backend: `http://localhost:3000`
 
+ทดสอบ backend: `npm --prefix backend test`
+
+## LINE Bot
+
+การเพิ่มเพื่อน/เชื่อมบัญชี, แจ้งเตือนคู่ที่อาจตรงกันทาง LINE และ Rich Menu — ดูการติดตั้งและทดสอบที่ [README-LINE.md](README-LINE.md)
+
 This template provides a minimal setup to get React working in Vite with HMR and some Oxlint rules.
 
 Currently, two official plugins are available:

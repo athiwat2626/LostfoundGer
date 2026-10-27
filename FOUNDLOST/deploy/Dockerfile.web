@@ -1,0 +1,17 @@
+# หน้าเว็บของ FOUND&LOST: build ด้วย Vite แล้วเสิร์ฟด้วย Caddy (HTTPS อัตโนมัติ + ส่ง /backend/* ต่อให้ Express)
+# build (context = โฟลเดอร์ FOUNDLOST): docker build -f deploy/Dockerfile.web -t foundlost-web FOUNDLOST
+FROM node:24-bookworm-slim AS build
+WORKDIR /app
+COPY frontend/package.json frontend/package-lock.json ./
+RUN npm ci --no-audit --no-fund
+COPY frontend/ ./
+# API อยู่โดเมนเดียวกันใต้ /backend (ค่านี้ฝังลงไฟล์ JS ห้ามเป็น secret)
+ARG VITE_API_URL=/backend
+ENV VITE_API_URL=${VITE_API_URL}
+RUN npm run build
+
+FROM caddy:2-alpine
+COPY deploy/Caddyfile /etc/caddy/Caddyfile
+COPY --from=build /app/dist /srv
+HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
+  CMD wget -q -O /dev/null http://127.0.0.1:2019/config/ || exit 1

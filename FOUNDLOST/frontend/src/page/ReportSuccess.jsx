@@ -1,5 +1,6 @@
 import { useLocation, useNavigate } from "react-router-dom";
 import { CheckCircle, Home, FileText, Clock, MessageSquare } from "lucide-react";
+import UserLayout from "../component/UserLayout";
 
 function formatThaiDate(isoStr) {
   if (!isoStr) return "-";
@@ -22,13 +23,13 @@ export default function ReportSuccess() {
   const { reportId, createdAt } = location.state || {};
 
   return (
-    <div className="min-h-screen bg-[#f7f3ea] bg-dot-pattern flex items-center justify-center px-4">
-      <div className="w-full max-w-md">
+    <UserLayout>
+      <div className="mx-auto mt-10 w-full max-w-md">
         {/* Success icon */}
         <div className="flex flex-col items-center mb-8">
           <div className="relative w-24 h-24 mb-4">
-            <div className="w-24 h-24 rounded-full bg-emerald-100 flex items-center justify-center">
-              <CheckCircle size={52} className="text-emerald-600" strokeWidth={1.8} />
+            <div className="w-24 h-24 rounded-full bg-brand-50 flex items-center justify-center">
+              <CheckCircle size={52} className="text-brand" strokeWidth={1.8} />
             </div>
             {/* small shield */}
             <div className="absolute bottom-0 right-0 w-8 h-8 rounded-full bg-green-500 border-2 border-white flex items-center justify-center">
@@ -90,7 +91,7 @@ export default function ReportSuccess() {
           <div className="space-y-4">
             {/* Step 1 — done */}
             <div className="flex items-center gap-3">
-              <div className="w-7 h-7 rounded-full bg-emerald-500 flex items-center justify-center shrink-0">
+              <div className="w-7 h-7 rounded-full bg-brand flex items-center justify-center shrink-0">
                 <CheckCircle size={14} className="text-white" />
               </div>
               <div>
@@ -104,8 +105,8 @@ export default function ReportSuccess() {
 
             {/* Step 2 — in progress */}
             <div className="flex items-center gap-3">
-              <div className="w-7 h-7 rounded-full border-2 border-emerald-400 bg-white flex items-center justify-center shrink-0">
-                <div className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse" />
+              <div className="w-7 h-7 rounded-full border-2 border-brand-soft bg-white flex items-center justify-center shrink-0">
+                <div className="w-2.5 h-2.5 rounded-full bg-brand-soft animate-pulse" />
               </div>
               <p className="text-sm font-medium text-slate-600">อยู่ระหว่างตรวจสอบ</p>
             </div>
@@ -126,12 +127,12 @@ export default function ReportSuccess() {
         {/* Back home */}
         <button
           onClick={() => navigate("/home")}
-          className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-semibold py-3.5 rounded-xl transition-colors text-sm flex items-center justify-center gap-2"
+          className="w-full gradient-primary text-white font-semibold py-3.5 rounded-xl transition-colors text-sm flex items-center justify-center gap-2"
         >
           <Home size={17} />
           กลับหน้าหลัก
         </button>
       </div>
-    </div>
+    </UserLayout>
   );
 }

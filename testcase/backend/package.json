@@ -1,0 +1,17 @@
+{
+  "name": "foundlost-backend-tests",
+  "version": "1.0.0",
+  "description": "Automated tests for FOUNDLOST backend (Jest + Supertest)",
+  "scripts": {
+    "test": "jest",
+    "coverage": "jest --coverage"
+  },
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "devDependencies": {
+    "jest": "^29.7.0",
+    "supertest": "^7.3.0"
+  },
+  "private": true
+}

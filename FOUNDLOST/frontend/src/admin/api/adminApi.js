@@ -1,7 +1,8 @@
 import axios from "axios";
+import { API_URL } from "../../component/itemUtils";
 
 const adminApi = axios.create({
-  baseURL: "http://localhost:3000",
+  baseURL: API_URL,
 });
 
 adminApi.interceptors.request.use((config) => {

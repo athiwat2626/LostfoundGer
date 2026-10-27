@@ -147,3 +147,15 @@ export const campusLocations = [
   { name: "อาคารศูนย์เรียนรวม.3", position: [14.0221, 99.9755] },
   { name: "อาคารศูนย์เรียนรวม.4", position: [14.0217, 99.9743] },
 ];
+// หาพิกัดจากชื่อสถานที่ (ตรงทั้งคำก่อน แล้วค่อยหาแบบบางส่วน) — ไม่พบคืน null
+export const findLocationCoords = (name) => {
+  if (!name) return null;
+  const normalized = name.trim().toLowerCase();
+  if (!normalized) return null;
+  const exact = campusLocations.find((l) => l.name.toLowerCase() === normalized);
+  if (exact) return exact.position;
+  const partial = campusLocations.find(
+    (l) => l.name.toLowerCase().includes(normalized) || normalized.includes(l.name.toLowerCase())
+  );
+  return partial ? partial.position : null;
+};

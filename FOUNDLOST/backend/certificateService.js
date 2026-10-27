@@ -5,6 +5,12 @@
 const PDFDocument = require('pdfkit');
 const nodemailer = require('nodemailer');
 const { PassThrough } = require('stream');
+const path = require('path');
+const { getSettings } = require('./services/settings');
+
+// ฟอนต์ภาษาไทย (Sarabun, SIL Open Font License) — ฟอนต์มาตรฐานของ PDFKit ไม่มีอักษรไทย
+const FONT_REGULAR = path.join(__dirname, 'assets', 'fonts', 'Sarabun-Regular.ttf');
+const FONT_BOLD = path.join(__dirname, 'assets', 'fonts', 'Sarabun-Bold.ttf');
 
 // ใช้ env variable ชุดเดียวกับที่ server.js ใช้อยู่แล้ว (MAIL_USER, MAIL_APP_PASSWORD)
 // ไม่ต้องสร้างตัวแปรใหม่ใน .env เพิ่ม
@@ -32,6 +38,8 @@ function generateCertificatePDF(user) {
     stream.on('error', reject);
 
     doc.pipe(stream);
+    doc.registerFont('Thai', FONT_REGULAR);
+    doc.registerFont('Thai-Bold', FONT_BOLD);
 
     const issueDate = (user.date || new Date()).toLocaleDateString('th-TH', {
       year: 'numeric', month: 'long', day: 'numeric',
@@ -40,16 +48,23 @@ function generateCertificatePDF(user) {
     doc.lineWidth(3).strokeColor('#C9A24B')
       .rect(20, 20, doc.page.width - 40, doc.page.height - 40).stroke();
 
-    doc.fontSize(28).fillColor('#333333').text('เกียรติบัตร', { align: 'center' }).moveDown(0.3);
-    doc.fontSize(14).fillColor('#666666').text('Certificate of Appreciation', { align: 'center' }).moveDown(2);
+    doc.font('Thai-Bold').fontSize(28).fillColor('#333333').text('เกียรติบัตร', { align: 'center' }).moveDown(0.3);
+    doc.font('Thai').fontSize(14).fillColor('#666666').text('Certificate of Appreciation', { align: 'center' }).moveDown(2);
     doc.fontSize(16).fillColor('#333333').text('มอบให้เพื่อแสดงว่า', { align: 'center' }).moveDown(0.5);
-    doc.fontSize(24).fillColor('#000000').text(user.name, { align: 'center', underline: true }).moveDown(1);
-    doc.fontSize(14).fillColor('#333333')
+    doc.font('Thai-Bold').fontSize(24).fillColor('#000000').text(user.name, { align: 'center', underline: true }).moveDown(1);
+    doc.font('Thai').fontSize(14).fillColor('#333333')
       .text(`ได้ทำการส่งคืนของหายให้เจ้าของสำเร็จครบ ${user.returnCount} ครั้ง`, { align: 'center' })
       .moveDown(0.5)
       .text('แสดงถึงความมีน้ำใจและความซื่อสัตย์ต่อสังคม', { align: 'center' })
       .moveDown(2);
-    doc.fontSize(12).fillColor('#666666').text(`ออกให้ ณ วันที่ ${issueDate}`, { align: 'center' });
+    // ผู้ลงนาม (ตั้งค่าได้ในหน้าแอดมิน)
+    if (user.signerName) {
+      doc.font('Thai').fontSize(14).fillColor('#333333').text('ลงชื่อ ........................................', { align: 'center' }).moveDown(0.3);
+      doc.font('Thai-Bold').fontSize(14).text(`(${user.signerName})`, { align: 'center' });
+      if (user.signerTitle) doc.font('Thai').fontSize(13).fillColor('#555555').text(user.signerTitle, { align: 'center' });
+      doc.moveDown(1);
+    }
+    doc.font('Thai').fontSize(12).fillColor('#666666').text(`ออกให้ ณ วันที่ ${issueDate}`, { align: 'center' });
 
     doc.end();
   });
@@ -66,7 +81,7 @@ async function sendCertificateEmail(user, pdfBuffer) {
   }
 
   await transporter.sendMail({
-    from: mailUser,
+    from: { name: 'FOUND&LOST มหาวิทยาลัยเกษตรศาสตร์', address: mailUser },
     to: user.email,
     subject: `🎉 ขอแสดงความยินดี! คุณได้รับเกียรติบัตรจากการส่งคืนของหายครบ ${user.returnCount} ครั้ง`,
     html: `
@@ -88,7 +103,12 @@ async function sendCertificateEmail(user, pdfBuffer) {
 
 /** สร้าง PDF แล้วส่งอีเมลในขั้นตอนเดียว */
 async function issueCertificate(user) {
-  const pdfBuffer = await generateCertificatePDF(user);
+  const settings = await getSettings().catch(() => ({}));
+  const pdfBuffer = await generateCertificatePDF({
+    ...user,
+    signerName: settings.certificate_signer_name || '',
+    signerTitle: settings.certificate_signer_title || '',
+  });
   await sendCertificateEmail(user, pdfBuffer);
 }
 

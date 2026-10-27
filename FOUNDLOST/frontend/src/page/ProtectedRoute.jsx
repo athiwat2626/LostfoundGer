@@ -1,24 +1,27 @@
 import { useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
+import { clearUserSession, hasValidUserSession } from "../component/session";
 
+// เข้าได้เฉพาะเมื่อมี token ผู้ใช้ที่ยังไม่หมดอายุ (ได้จากการยืนยัน OTP)
 const ProtectedRoute = ({ children }) => {
-    const isLoggedIn = localStorage.getItem("isLoggedIn");
-    const navigate = useNavigate();
+  const loggedIn = hasValidUserSession();
+  const navigate = useNavigate();
+  const location = useLocation();
 
-    useEffect(() => {
-        if (isLoggedIn !== "true") {
-            const message = "ยังไม่ได้เข้าสู่ระบบ กรุณาเข้าสู่ระบบก่อนเข้าใช้งาน";
-            window.alert(message);
-            navigate("/login", {
-                replace: true,
-                state: { message },
-            });
-        }
-    }, [isLoggedIn, navigate]);
+  useEffect(() => {
+    if (!loggedIn) {
+      clearUserSession();
+      navigate("/login", {
+        replace: true,
+        // จำหน้าที่ตั้งใจจะเปิด (เช่น ลิงก์จากเมนู LINE) แล้วพากลับมาหลังเข้าสู่ระบบ
+        state: { message: "กรุณาเข้าสู่ระบบก่อนเข้าใช้งาน", from: `${location.pathname}${location.search}` },
+      });
+    }
+  }, [loggedIn, navigate, location.pathname, location.search]);
 
-    if (isLoggedIn !== "true") return null;
+  if (!loggedIn) return null;
 
-    return children;
+  return children;
 };
 
 export default ProtectedRoute;

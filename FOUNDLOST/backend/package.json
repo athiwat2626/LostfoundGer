@@ -7,9 +7,11 @@
   "type": "commonjs",
   "main": "db.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
+    "test": "node --test --test-reporter=spec \"test/**/*.test.js\"",
     "start": "node --env-file-if-exists=.env server.js",
-    "dev": "nodemon --legacy-watch --exec \"node --env-file-if-exists=.env\" server.js"
+    "dev": "nodemon --legacy-watch --exec \"node --env-file-if-exists=.env\" server.js",
+    "line:richmenu": "node --env-file-if-exists=.env scripts/line/deployRichMenu.js",
+    "line:richmenu:image": "node scripts/line/renderRichMenuImage.js"
   },
   "dependencies": {
     "bcryptjs": "^2.4.3",
@@ -17,12 +19,13 @@
     "dotenv": "^17.4.2",
     "express": "^5.2.1",
     "jsonwebtoken": "^9.0.3",
-    "lucide-react": "^1.39.0",
     "multer": "^2.2.0",
     "nodemailer": "^9.0.5",
-    "nodemon": "^3.1.14",
     "pdfkit": "^0.20.2",
     "pg": "^8.22.0",
     "swagger-ui-express": "^5.0.1"
+  },
+  "devDependencies": {
+    "nodemon": "^3.1.14"
   }
 }

@@ -1,0 +1,102 @@
+TAP version 13
+# Subtest: X-Line-Signature
+    # Subtest: ลายเซ็นที่ถูกต้องผ่านการตรวจ
+    ok 1 - ลายเซ็นที่ถูกต้องผ่านการตรวจ
+      ---
+      duration_ms: 0.8941
+      type: 'test'
+      ...
+    # Subtest: ลายเซ็นผิด / secret ผิด / body ถูกแก้ / ไม่มีลายเซ็น ไม่ผ่าน
+    ok 2 - ลายเซ็นผิด / secret ผิด / body ถูกแก้ / ไม่มีลายเซ็น ไม่ผ่าน
+      ---
+      duration_ms: 0.2582
+      type: 'test'
+      ...
+    1..2
+ok 1 - X-Line-Signature
+  ---
+  duration_ms: 1.9034
+  type: 'suite'
+  ...
+# Subtest: POST /api/line/webhook
+    # Subtest: ลายเซ็นไม่ถูกต้อง → 401 และไม่ประมวลผล event
+    ok 1 - ลายเซ็นไม่ถูกต้อง → 401 และไม่ประมวลผล event
+      ---
+      duration_ms: 57.6473
+      type: 'test'
+      ...
+    # Subtest: ไม่มี header ลายเซ็น → 401
+    ok 2 - ไม่มี header ลายเซ็น → 401
+      ---
+      duration_ms: 9.1112
+      type: 'test'
+      ...
+    # Subtest: ยังไม่ได้ตั้ง LINE_CHANNEL_SECRET → 503 (ไม่รับ webhook ที่ตรวจสอบไม่ได้)
+    ok 3 - ยังไม่ได้ตั้ง LINE_CHANNEL_SECRET → 503 (ไม่รับ webhook ที่ตรวจสอบไม่ได้)
+      ---
+      duration_ms: 6.4307
+      type: 'test'
+      ...
+    # Subtest: ปุ่ม Verify ของ LINE (events ว่าง) → 200
+    ok 4 - ปุ่ม Verify ของ LINE (events ว่าง) → 200
+      ---
+      duration_ms: 4.8401
+      type: 'test'
+      ...
+    # Subtest: follow: ตอบ 200 ก่อน แล้วบันทึกบัญชีและส่งข้อความต้อนรับพร้อมปุ่มเชื่อมบัญชี
+    ok 5 - follow: ตอบ 200 ก่อน แล้วบันทึกบัญชีและส่งข้อความต้อนรับพร้อมปุ่มเชื่อมบัญชี
+      ---
+      duration_ms: 9.4619
+      type: 'test'
+      ...
+    # Subtest: follow ของผู้ที่เชื่อมบัญชีแล้ว → ข้อความต้อนรับกลับ ไม่ออกรหัสใหม่
+    ok 6 - follow ของผู้ที่เชื่อมบัญชีแล้ว → ข้อความต้อนรับกลับ ไม่ออกรหัสใหม่
+      ---
+      duration_ms: 5.5043
+      type: 'test'
+      ...
+    # Subtest: unfollow: ปิดสถานะการเป็นเพื่อน คงการเชื่อมบัญชีไว้ และยกเลิกรหัสที่ยังไม่ได้ใช้
+    ok 7 - unfollow: ปิดสถานะการเป็นเพื่อน คงการเชื่อมบัญชีไว้ และยกเลิกรหัสที่ยังไม่ได้ใช้
+      ---
+      duration_ms: 6.9104
+      type: 'test'
+      ...
+    # Subtest: event ที่ LINE ส่งซ้ำ (webhookEventId เดิม) ประมวลผลครั้งเดียว
+    ok 8 - event ที่ LINE ส่งซ้ำ (webhookEventId เดิม) ประมวลผลครั้งเดียว
+      ---
+      duration_ms: 8.1166
+      type: 'test'
+      ...
+    # Subtest: พิมพ์ "เชื่อมบัญชี" → ได้ลิงก์ใหม่ / "ยกเลิกการเชื่อม" → ยกเลิกการเชื่อม
+    ok 9 - พิมพ์ "เชื่อมบัญชี" → ได้ลิงก์ใหม่ / "ยกเลิกการเชื่อม" → ยกเลิกการเชื่อม
+      ---
+      duration_ms: 8.6846
+      type: 'test'
+      ...
+    # Subtest: ข้อความอื่นได้คำแนะนำการใช้งาน และ event จากกลุ่มถูกข้าม
+    ok 10 - ข้อความอื่นได้คำแนะนำการใช้งาน และ event จากกลุ่มถูกข้าม
+      ---
+      duration_ms: 4.2602
+      type: 'test'
+      ...
+    # Subtest: ตอบกลับไม่สำเร็จ (reply token หมดอายุ) ไม่ทำให้การบันทึกล้มเหลว
+    ok 11 - ตอบกลับไม่สำเร็จ (reply token หมดอายุ) ไม่ทำให้การบันทึกล้มเหลว
+      ---
+      duration_ms: 2.9999
+      type: 'test'
+      ...
+    1..11
+ok 2 - POST /api/line/webhook
+  ---
+  duration_ms: 124.9304
+  type: 'suite'
+  ...
+1..2
+# tests 13
+# suites 2
+# pass 13
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 303.1032

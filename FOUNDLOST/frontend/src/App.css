@@ -4,3 +4,180 @@
   background-image: radial-gradient(circle, rgba(15, 61, 46, 0.14) 1px, transparent 1px);
   background-size: 20px 20px;
 }
+
+/* สีหลักของระบบ (ใช้เป็น bg-brand, text-brand, border-brand ...) */
+@theme {
+  --color-brand: #006664;
+  --color-brand-dark: #00524f;
+  --color-brand-soft: #8fbbb8;
+  --color-brand-50: #e8f3f2;
+
+  /* Design system กลาง (เว็บ + มือถือ) */
+  --color-surface: #ffffff;
+  --color-canvas: #f4f7f7;
+  --radius-card: 1.25rem;
+  --shadow-card: 0 1px 2px rgba(15, 23, 42, 0.04), 0 6px 18px -8px rgba(15, 23, 42, 0.12);
+  --shadow-float: 0 -4px 24px -8px rgba(15, 23, 42, 0.16);
+}
+
+/* การ์ดมาตรฐาน: พื้นขาว มุมโค้ง เส้นขอบบาง เงาเบา */
+@utility card {
+  background-color: var(--color-surface);
+  border: 1px solid var(--color-slate-100);
+  border-radius: var(--radius-card);
+  box-shadow: var(--shadow-card);
+}
+
+/* พื้นที่กดขั้นต่ำ 44×44 px สำหรับนิ้ว */
+@utility tap {
+  min-height: 44px;
+  min-width: 44px;
+}
+
+/* เว้นพื้นที่ใต้เนื้อหาบนมือถือ ไม่ให้ Bottom Navigation บัง (รวม safe area ของ iPhone) */
+@utility pb-bottom-nav {
+  padding-bottom: calc(6rem + env(safe-area-inset-bottom));
+}
+@utility pb-safe {
+  padding-bottom: env(safe-area-inset-bottom);
+}
+
+/* แถบเลื่อนแนวนอนที่ซ่อน scrollbar (ชิปตัวกรองบนมือถือ) */
+@utility scroll-x {
+  overflow-x: auto;
+  scrollbar-width: none;
+  -webkit-overflow-scrolling: touch;
+  &::-webkit-scrollbar {
+    display: none;
+  }
+}
+
+/* ── ชุดสีไล่ระดับของระบบ (ใช้ร่วมกันทุกหน้า) ─────────────────────────────── */
+
+/* แถบเมนูด้านซ้าย: เขียวอมฟ้าสว่างด้านบน ไล่ลงเป็นเขียวเข้ม */
+@utility gradient-sidebar {
+  background-image: linear-gradient(180deg, #0a8a82 0%, #006664 45%, #003f3d 100%);
+}
+
+/* ปุ่มหลัก */
+@utility gradient-primary {
+  background-image: linear-gradient(135deg, #14a39a 0%, #007a73 50%, #005955 100%);
+  box-shadow: 0 6px 16px -6px rgba(0, 102, 100, 0.55);
+  transition: filter 0.2s, box-shadow 0.2s, transform 0.2s;
+  &:hover:not(:disabled) {
+    filter: brightness(1.08);
+    box-shadow: 0 10px 22px -8px rgba(0, 102, 100, 0.65);
+  }
+}
+
+/* แบนเนอร์หัวหน้า: เขียวเข้ม → เขียวอมฟ้า → ฟ้าอ่อน พร้อมแสงวงกลมจาง ๆ */
+@utility gradient-hero {
+  background-image:
+    radial-gradient(circle at 85% 15%, rgba(255, 255, 255, 0.22), transparent 40%),
+    radial-gradient(circle at 10% 110%, rgba(125, 211, 192, 0.35), transparent 45%),
+    linear-gradient(120deg, #004d4a 0%, #007a73 40%, #14a39a 70%, #38bdf8 100%);
+}
+
+/* พื้นหลังหน้า: ขาวอมเทา มีแสงเขียว/ฟ้าจาง ๆ ที่มุม */
+@utility gradient-app {
+  background-color: #f6f9f9;
+  background-image:
+    radial-gradient(1100px 520px at 100% -8%, rgba(20, 163, 154, 0.12), transparent 60%),
+    radial-gradient(900px 480px at -8% 108%, rgba(56, 189, 248, 0.09), transparent 60%);
+  background-attachment: fixed;
+}
+
+/* การ์ดเลือกประเภทการแจ้ง */
+@utility gradient-lost {
+  background-image: linear-gradient(135deg, #ff8f7a 0%, #ff6b6b 50%, #f0506e 100%);
+}
+@utility gradient-found {
+  background-image: linear-gradient(135deg, #2cc5b4 0%, #0f9994 50%, #0b716d 100%);
+}
+
+/* ── โหมดมืด (ตั้งค่า → การแสดงผล) ───────────────────────────────────────────
+   สลับค่าตัวแปรสีของ Tailwind ภายในหน้าฝั่งผู้ใช้ (.user-app) แทนการเติม dark: ทุกคลาส
+   slate กลับด้าน (เข้ม ↔ อ่อน), สีพื้นอ่อนของสถานะเป็นโทนเข้ม, สีตัวอักษรสถานะสว่างขึ้นให้อ่านง่ายบนพื้นมืด */
+html[data-theme="dark"] {
+  background-color: #0d1414;
+}
+html[data-theme="dark"] .user-app {
+  color-scheme: dark;
+  --color-surface: #152020;
+  --color-canvas: #0d1414;
+  --shadow-card: 0 1px 2px rgba(0, 0, 0, 0.4), 0 6px 18px -8px rgba(0, 0, 0, 0.6);
+  --shadow-float: 0 -4px 24px -8px rgba(0, 0, 0, 0.7);
+
+  --color-slate-50: #1b2626;
+  --color-slate-100: #223030;
+  --color-slate-200: #2d3d3d;
+  --color-slate-300: #415252;
+  --color-slate-400: #7d8c8c;
+  --color-slate-500: #9aa8a8;
+  --color-slate-600: #b5c1c1;
+  --color-slate-700: #ccd5d5;
+  --color-slate-800: #e0e7e7;
+  --color-slate-900: #eff4f4;
+
+  --color-brand: #1f9d93;
+  --color-brand-dark: #7fd6cd;
+  --color-brand-soft: #2c5f5b;
+  --color-brand-50: #12302e;
+
+  --color-red-50: #3a1618;
+  --color-red-100: #4a1c1f;
+  --color-red-200: #6b2a2e;
+  --color-red-600: #f38b8b;
+  --color-red-700: #f7a8a8;
+  --color-amber-50: #33270f;
+  --color-amber-100: #45330f;
+  --color-amber-200: #5c4513;
+  --color-amber-600: #f2b544;
+  --color-amber-700: #f6c868;
+  --color-sky-50: #0f2a38;
+  --color-sky-100: #12374a;
+  --color-sky-200: #1b4b63;
+  --color-sky-600: #63c3f0;
+  --color-sky-700: #8bd3f5;
+  --color-orange-50: #3a2412;
+  --color-orange-200: #5e3818;
+  --color-orange-600: #f6a066;
+  --color-orange-700: #f9b07f;
+  --color-green-50: #11301c;
+  --color-green-600: #4ade80;
+  --color-green-700: #74e8a0;
+  --color-emerald-50: #0f2f25;
+  --color-emerald-200: #1d5040;
+  --color-emerald-700: #63e0b2;
+  --color-teal-50: #0f2f2c;
+  --color-teal-600: #3cc9b9;
+  --color-violet-100: #2b2145;
+  --color-violet-700: #c4b5fd;
+  --color-rose-100: #3d1820;
+  --color-rose-700: #fda4af;
+}
+/* พื้นขาว (bg-white) ใช้ตัวแปรเดียวกับ text-white จึงสลับเฉพาะพื้นหลัง — สีขาวโปร่งบนพื้นไล่สีคงเดิม */
+html[data-theme="dark"] .user-app .bg-white,
+html[data-theme="dark"] .user-app .bg-white\/95,
+html[data-theme="dark"] .user-app .bg-white\/90,
+html[data-theme="dark"] .user-app .bg-white\/80,
+html[data-theme="dark"] .user-app .hover\:bg-white:hover,
+html[data-theme="dark"] .user-app .focus\:bg-white:focus {
+  background-color: var(--color-surface);
+}
+/* ฉากหลังป๊อปอัพต้องมืดเสมอ (slate-900 ถูกสลับเป็นสีอ่อนในโหมดมืด) */
+html[data-theme="dark"] .user-app .bg-slate-900\/40 {
+  background-color: rgb(0 0 0 / 0.6);
+}
+html[data-theme="dark"] .user-app .ring-white {
+  --tw-ring-color: var(--color-surface);
+}
+html[data-theme="dark"] .user-app .border-white {
+  border-color: var(--color-surface);
+}
+html[data-theme="dark"] .user-app.gradient-app {
+  background-color: var(--color-canvas);
+  background-image:
+    radial-gradient(1100px 520px at 100% -8%, rgba(20, 163, 154, 0.1), transparent 60%),
+    radial-gradient(900px 480px at -8% 108%, rgba(56, 189, 248, 0.06), transparent 60%);
+}

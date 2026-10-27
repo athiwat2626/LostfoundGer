@@ -1,0 +1,87 @@
+TAP version 13
+# Subtest: POST /lostItem (ระบบเดิม)
+    # Subtest: ยังต้องเข้าสู่ระบบ
+    ok 1 - ยังต้องเข้าสู่ระบบ
+      ---
+      duration_ms: 35.1698
+      type: 'test'
+      ...
+    # Subtest: ข้อมูลไม่ครบ → 400 เหมือนเดิม
+    ok 2 - ข้อมูลไม่ครบ → 400 เหมือนเดิม
+      ---
+      duration_ms: 11.306
+      type: 'test'
+      ...
+# LINE notification skipped: LINE environment variables are not configured
+    # Subtest: แจ้งของหายสำเร็จ → 201 พร้อม item_id และเรียกจับคู่เบื้องหลังโดยไม่บล็อกการตอบกลับ
+    ok 3 - แจ้งของหายสำเร็จ → 201 พร้อม item_id และเรียกจับคู่เบื้องหลังโดยไม่บล็อกการตอบกลับ
+      ---
+      duration_ms: 47.7433
+      type: 'test'
+      ...
+    1..3
+ok 1 - POST /lostItem (ระบบเดิม)
+  ---
+  duration_ms: 95.4579
+  type: 'suite'
+  ...
+# Subtest: GET /api/my-items/:type/:id/matches (ลิงก์จากข้อความ LINE)
+    # Subtest: ไม่มี token → 401
+    ok 1 - ไม่มี token → 401
+      ---
+      duration_ms: 5.2317
+      type: 'test'
+      ...
+    # Subtest: รายการของผู้อื่น → 404 (query กรองด้วย student_id จาก token เสมอ)
+    ok 2 - รายการของผู้อื่น → 404 (query กรองด้วย student_id จาก token เสมอ)
+      ---
+      duration_ms: 4.4704
+      type: 'test'
+      ...
+    # Subtest: เจ้าของรายการ → 200
+    ok 3 - เจ้าของรายการ → 200
+      ---
+      duration_ms: 2.6387
+      type: 'test'
+      ...
+# LINE notification skipped: LINE environment variables are not configured
+    # Subtest: พารามิเตอร์แปลกปลอม → 400
+    ok 4 - พารามิเตอร์แปลกปลอม → 400
+      ---
+      duration_ms: 10.233
+      type: 'test'
+      ...
+    1..4
+ok 2 - GET /api/my-items/:type/:id/matches (ลิงก์จากข้อความ LINE)
+  ---
+  duration_ms: 23.251
+  type: 'suite'
+  ...
+# Subtest: sendLineNotification (ฟีดแจ้งผู้ดูแลเดิม)
+    # Subtest: ไม่ได้ตั้งค่า → skipped ไม่เรียก LINE
+    ok 1 - ไม่ได้ตั้งค่า → skipped ไม่เรียก LINE
+      ---
+      duration_ms: 0.2922
+      type: 'test'
+      ...
+    # Subtest: ตั้งค่าแล้ว → push ข้อความไปยัง LINE_USER_ID
+    ok 2 - ตั้งค่าแล้ว → push ข้อความไปยัง LINE_USER_ID
+      ---
+      duration_ms: 0.7156
+      type: 'test'
+      ...
+    1..2
+ok 3 - sendLineNotification (ฟีดแจ้งผู้ดูแลเดิม)
+  ---
+  duration_ms: 1.1745
+  type: 'suite'
+  ...
+1..3
+# tests 9
+# suites 3
+# pass 9
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 439.0109

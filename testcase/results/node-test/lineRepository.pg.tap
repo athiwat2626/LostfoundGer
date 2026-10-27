@@ -1,0 +1,53 @@
+TAP version 13
+# Subtest: lineRepository (PostgreSQL)
+    # Subtest: follow → link → unfollow → unlink ด้วย SQL จริง
+    ok 1 - follow → link → unfollow → unlink ด้วย SQL จริง
+      ---
+      duration_ms: 33.2226
+      type: 'test'
+      ...
+    # Subtest: รหัสที่หมดอายุแล้วใช้ไม่ได้ (ข้อมูลจริงในฐานข้อมูล)
+    ok 2 - รหัสที่หมดอายุแล้วใช้ไม่ได้ (ข้อมูลจริงในฐานข้อมูล)
+      ---
+      duration_ms: 6.9941
+      type: 'test'
+      ...
+    # Subtest: webhook event ซ้ำถูกตรวจพบ
+    ok 3 - webhook event ซ้ำถูกตรวจพบ
+      ---
+      duration_ms: 2.787
+      type: 'test'
+      ...
+    # Subtest: คู่รายการเดิมบันทึกได้ครั้งเดียว และผูกกับการส่ง LINE ได้
+    ok 4 - คู่รายการเดิมบันทึกได้ครั้งเดียว และผูกกับการส่ง LINE ได้
+      ---
+      duration_ms: 11.0138
+      type: 'test'
+      ...
+    # Subtest: retry: จองงานที่ถึงเวลา (SKIP LOCKED) → sent
+    ok 5 - retry: จองงานที่ถึงเวลา (SKIP LOCKED) → sent
+      ---
+      duration_ms: 14.7762
+      type: 'test'
+      ...
+    # Subtest: ลบผู้ใช้/รายการ ไม่ทำให้ข้อมูลค้างผิดรูป (foreign keys)
+    ok 6 - ลบผู้ใช้/รายการ ไม่ทำให้ข้อมูลค้างผิดรูป (foreign keys)
+      ---
+      duration_ms: 2.9479
+      type: 'test'
+      ...
+    1..6
+ok 1 - lineRepository (PostgreSQL)
+  ---
+  duration_ms: 387.7227
+  type: 'suite'
+  ...
+1..1
+# tests 6
+# suites 1
+# pass 6
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 491.0486

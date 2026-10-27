@@ -1,0 +1,39 @@
+# Caddy ของ FOUND&LOST
+# APP_DOMAIN  = โดเมนจริง เช่น lostfound.example.com (Caddy ออกใบรับรอง HTTPS ให้อัตโนมัติ)
+#               ทดสอบในเครื่องใช้ http://localhost
+# ACME_EMAIL  = อีเมลที่ Let's Encrypt ใช้แจ้งเตือนใบรับรอง
+{
+	email {$ACME_EMAIL}
+}
+
+{$APP_DOMAIN} {
+	encode zstd gzip
+
+	# รูปอัปโหลดจำกัด 5 MB ต่อไฟล์ (multer) เผื่อข้อมูลฟอร์มอีกเล็กน้อย
+	request_body {
+		max_size 6MB
+	}
+
+	header {
+		Strict-Transport-Security "max-age=31536000"
+		X-Content-Type-Options "nosniff"
+		Referrer-Policy "strict-origin-when-cross-origin"
+		-Server
+	}
+
+	# API ทั้งหมด (รวม LINE webhook) — ตัด /backend ออกก่อนส่งให้ Express จึงไม่ต้องแก้ route
+	handle_path /backend/* {
+		reverse_proxy backend:3000
+	}
+
+	# หน้าเว็บ React: ไฟล์ใน /assets มี hash ในชื่อ cache ได้นาน ส่วน path อื่นส่ง index.html (SPA)
+	handle {
+		root * /srv
+		@hashed path /assets/*
+		header @hashed Cache-Control "public, max-age=31536000, immutable"
+		@html not path /assets/*
+		header @html Cache-Control "no-cache"
+		try_files {path} /index.html
+		file_server
+	}
+}
