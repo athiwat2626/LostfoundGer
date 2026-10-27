@@ -18,7 +18,7 @@ import userApi from "../component/userApi";
 import ConfirmDialog from "../component/ConfirmDialog";
 import TypeTabs from "../component/TypeTabs";
 import { useSiteSettings } from "../component/siteSettings";
-import { API_URL, formatThaiDate, reportState } from "../component/itemUtils";
+import { API_URL, formatThaiDate, oldestItemDate, reportState, todayInput } from "../component/itemUtils";
 import { ContactCard, ItemDetailModal } from "../component/itemUi";
 
 const FIELDS = {
@@ -280,7 +280,7 @@ const EditModal = ({ item, onClose, onSaved }) => {
           </label>
           <label className="block text-sm font-semibold text-slate-800">
             {f.dateLabel}
-            <input type="date" value={form.date} onChange={(e) => setField("date", e.target.value)} required className={`${inputClass} mt-1.5`} />
+            <input type="date" value={form.date} min={oldestItemDate()} max={todayInput()} onChange={(e) => setField("date", e.target.value)} required className={`${inputClass} mt-1.5`} />
           </label>
         </div>
         <label className="block text-sm font-semibold text-slate-800">

@@ -1,6 +1,6 @@
 import { useMemo, useRef, useState } from "react";
 import { Link } from "react-router-dom";
-import { MapContainer, TileLayer, Marker, CircleMarker, Tooltip, useMapEvents } from "react-leaflet";
+import { MapContainer, TileLayer, Marker, CircleMarker, Tooltip, ZoomControl, useMapEvents } from "react-leaflet";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import {
@@ -20,6 +20,7 @@ import {
   RotateCcw,
 } from "lucide-react";
 import { campusLocations, searchLocations } from "../data/campusLocations";
+import { oldestItemDate, todayInput } from "./itemUtils";
 import { LocationSuggestions } from "./LocationSuggestions";
 import { useSiteSettings } from "./siteSettings";
 import userApi from "./userApi";
@@ -85,7 +86,6 @@ const labelClass = "mb-1.5 block text-sm font-semibold text-slate-800";
 // text-base บนมือถือ: iOS ไม่ซูมหน้าเมื่อแตะช่องกรอก
 const inputClass =
   "w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-3 text-base text-slate-800 placeholder-slate-400 outline-none transition focus:border-brand focus:bg-white focus:ring-2 focus:ring-brand/20 md:py-2.5 md:text-sm";
-const today = () => new Date().toLocaleDateString("sv-SE");
 
 // หัวข้อแต่ละขั้นของฟอร์ม
 const Step = ({ no, title, children }) => (
@@ -197,7 +197,8 @@ const ReportItemForm = ({ type }) => {
     if (!form.item_name.trim()) return fail("กรุณากรอกชื่อสิ่งของ");
     if (!form.category) return fail("กรุณาเลือกหมวดหมู่");
     if (!form.date) return fail(`กรุณาเลือก${text.dateLabel}`);
-    if (form.date > today()) return fail(`${text.dateLabel}ต้องไม่เป็นวันในอนาคต`);
+    if (form.date > todayInput()) return fail(`${text.dateLabel}ต้องไม่เป็นวันในอนาคต`);
+    if (form.date < oldestItemDate()) return fail(`${text.dateLabel}ย้อนหลังได้ไม่เกิน 1 ปี`);
     if (!form.location.trim()) return fail(`กรุณาระบุ${text.locationLabel}`);
     if (!form.deposit_location.trim()) return fail(`กรุณาระบุ${text.depositLabel}`);
     if (!image) return fail("กรุณาเลือกหรือถ่ายรูปภาพสิ่งของ");
@@ -285,7 +286,7 @@ const ReportItemForm = ({ type }) => {
                     setMapSuggestions(searchLocations(e.target.value));
                   }}
                   placeholder="ค้นหาสถานที่บนแผนที่"
-                  className="w-full bg-transparent text-sm outline-none placeholder:text-slate-400"
+                  className="w-full bg-transparent text-sm text-slate-800 outline-none placeholder:text-slate-400"
                 />
               </div>
               <div className="relative">
@@ -293,7 +294,9 @@ const ReportItemForm = ({ type }) => {
               </div>
             </div>
 
-            <MapContainer ref={mapRef} center={CAMPUS_CENTER} zoom={16} minZoom={14} maxZoom={19} className="z-0 h-64 w-full sm:h-80 lg:h-105">
+            <MapContainer ref={mapRef} center={CAMPUS_CENTER} zoom={16} minZoom={14} maxZoom={19} className="z-0 h-64 w-full sm:h-80 lg:h-105" zoomControl={false}>
+              {/* ปุ่มซูมไว้มุมขวาล่าง — มุมบนซ้ายเดิมถูกช่องค้นหาบังอยู่ */}
+              <ZoomControl position="bottomright" />
               <TileLayer
                 attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
                 url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
@@ -436,7 +439,8 @@ const ReportItemForm = ({ type }) => {
               id="report-date"
               type="date"
               value={form.date}
-              max={today()}
+              min={oldestItemDate()}
+              max={todayInput()}
               onChange={(e) => setField("date", e.target.value)}
               required
               className={`${inputClass} pl-9`}

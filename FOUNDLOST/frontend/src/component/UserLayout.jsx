@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import userApi from "./userApi";
 import { clearUserSession } from "./session";
@@ -199,6 +199,45 @@ const ReportTypeModal = ({ open, onClose }) => {
   );
 };
 
+// ช่องค้นหาเก็บค่าที่พิมพ์ไว้เอง แล้วค่อยส่งให้หน้าหลังหยุดพิมพ์ 300ms
+// (ถ้าส่งทุกครั้งที่กด หน้าที่เขียน ?q= ลง URL จะส่งค่าเก่ากลับมาทับตอนพิมพ์เร็ว ตัวอักษรหาย)
+const SEARCH_DEBOUNCE_MS = 300;
+const SearchInput = ({ value, onChange, placeholder }) => {
+  const [draft, setDraft] = useState(value);
+  const sent = useRef(value);
+  const onChangeRef = useRef(onChange);
+  useEffect(() => {
+    onChangeRef.current = onChange;
+  });
+
+  // ค่าจากหน้าเปลี่ยนเอง (เช่น กดล้างตัวกรอง) → แสดงตาม
+  useEffect(() => {
+    if (value === sent.current) return;
+    sent.current = value;
+    setDraft(value);
+  }, [value]);
+
+  useEffect(() => {
+    if (draft === sent.current) return undefined;
+    const timer = setTimeout(() => {
+      sent.current = draft;
+      onChangeRef.current(draft);
+    }, SEARCH_DEBOUNCE_MS);
+    return () => clearTimeout(timer);
+  }, [draft]);
+
+  return (
+    <input
+      type="search"
+      enterKeyHint="search"
+      value={draft}
+      onChange={(e) => setDraft(e.target.value)}
+      placeholder={placeholder}
+      className="w-full bg-transparent text-base text-slate-700 placeholder-slate-400 outline-none md:text-sm"
+    />
+  );
+};
+
 // ─── โครงหน้าผู้ใช้: แถบเมนูซ้าย + แถบค้นหา/คำทักทาย + ป๊อปอัพแจ้งสิ่งของ/ออกจากระบบ ──────
 // search: { value, onChange, placeholder } — หน้าที่ไม่มีช่องค้นหาไม่ต้องส่ง
 const UserLayout = ({ search, children }) => {
@@ -263,14 +302,7 @@ const UserLayout = ({ search, children }) => {
             <label className="order-last flex w-full min-w-0 items-center gap-2 rounded-2xl border border-slate-200 bg-white px-3.5 py-3 shadow-sm focus-within:border-brand focus-within:ring-2 focus-within:ring-brand/15 md:order-none md:w-auto md:flex-1 md:rounded-xl md:py-2.5">
               <Search size={18} className="shrink-0 text-slate-400" aria-hidden="true" />
               <span className="sr-only">ค้นหา</span>
-              <input
-                type="search"
-                enterKeyHint="search"
-                value={search.value}
-                onChange={(e) => search.onChange(e.target.value)}
-                placeholder={search.placeholder}
-                className="w-full bg-transparent text-base text-slate-700 placeholder-slate-400 outline-none md:text-sm"
-              />
+              <SearchInput value={search.value} onChange={search.onChange} placeholder={search.placeholder} />
             </label>
           ) : (
             <div className="hidden flex-1 md:block" />
