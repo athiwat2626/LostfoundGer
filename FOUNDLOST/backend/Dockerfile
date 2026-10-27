@@ -1,7 +1,8 @@
 # Backend ของ FOUND&LOST (Express 5 + PostgreSQL)
 # build: docker build -t foundlost-backend FOUNDLOST/backend
 # ค่า environment ทั้งหมดส่งเข้ามาตอนรัน (compose.deploy.yml) — ไม่มีไฟล์ .env อยู่ใน image
-FROM node:24-bookworm-slim AS deps
+# dependency ทั้งหมดเป็น JavaScript ล้วน จึงติดตั้งบนเครื่อง build ได้แม้ build ให้ ARM
+FROM --platform=$BUILDPLATFORM node:24-bookworm-slim AS deps
 WORKDIR /app
 COPY package.json package-lock.json ./
 RUN npm ci --omit=dev --no-audit --no-fund

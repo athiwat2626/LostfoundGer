@@ -1,12 +1,15 @@
-# Caddy ของ FOUND&LOST
-# APP_DOMAIN  = โดเมนจริง เช่น lostfound.example.com (Caddy ออกใบรับรอง HTTPS ให้อัตโนมัติ)
-#               ทดสอบในเครื่องใช้ http://localhost
-# ACME_EMAIL  = อีเมลที่ Let's Encrypt ใช้แจ้งเตือนใบรับรอง
+# Caddy ของ FOUND&LOST (อยู่ใน container web) — รับ HTTP ที่ :80 ภายใน container เท่านั้น
+# บน VPS: compose map เป็น 127.0.0.1:${APP_PORT} แล้ว Nginx ของเครื่อง (deploy/nginx.conf) ทำ HTTPS ให้
+# จึงไม่แย่งพอร์ต 80/443 กับเว็บอื่นที่อยู่บน VPS เดียวกัน
 {
-	email {$ACME_EMAIL}
+	auto_https off
+	servers {
+		# เชื่อ X-Forwarded-* จาก Nginx ของเครื่อง (ผ่าน docker network ที่เป็น private IP)
+		trusted_proxies static private_ranges
+	}
 }
 
-{$APP_DOMAIN} {
+:80 {
 	encode zstd gzip
 
 	# รูปอัปโหลดจำกัด 5 MB ต่อไฟล์ (multer) เผื่อข้อมูลฟอร์มอีกเล็กน้อย

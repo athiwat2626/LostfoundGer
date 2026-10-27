@@ -22,6 +22,7 @@ if [[ -n "$TAG" ]]; then
 fi
 grep -E '^(BACKEND|WEB)_IMAGE=' .env
 
+bash deploy/check-vps.sh
 "${COMPOSE[@]}" config --quiet
 "${COMPOSE[@]}" pull
 "${COMPOSE[@]}" up -d --remove-orphans
